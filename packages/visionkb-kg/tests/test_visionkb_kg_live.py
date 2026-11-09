@@ -81,7 +81,7 @@ def test_entity(walk):
     g = walk["gene"]
     assert g["id"].startswith("HGNC:") and g["symbol"].upper() == GENE.upper()
     node = ok("get_entity", {"curie": g["id"]})["data"]
-    assert node["node"]["id"] == g["id"] and "expressed_in" in node["degree_by_predicate"]
+    assert node["node"]["id"] == g["id"] and "biolink:expressed_in" in node["degree_by_predicate"]
 
 
 def test_relationships(walk):
