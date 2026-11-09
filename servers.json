@@ -47,6 +47,50 @@
           "description": "Queries in this server's data directory, with their state."
         }
       ]
+    },
+    {
+      "server": "visionkb-kg",
+      "category": "knowledge-graph",
+      "package": "aiscientist-mcp-visionkb-kg",
+      "version": "0.0.1",
+      "description": "MCP server: VisionKB knowledge graph (read-only queries with evidence)",
+      "entry_point": "visionkb-kg-mcp",
+      "image": "ghcr.io/lijinbio/mcp-visionkb-kg:0.0.1",
+      "path": "packages/visionkb-kg",
+      "tools": [
+        {
+          "name": "search_entities",
+          "description": "Resolve a name to graph entities: exact CURIE, then exact symbol, synonym, then full-text matches."
+        },
+        {
+          "name": "get_entity",
+          "description": "One node (id, name, category, symbol, synonyms, xrefs, description) with its degree by predicate."
+        },
+        {
+          "name": "get_relationships",
+          "description": "Edges from ``subject`` and/or to ``object`` (at least one), ranked by evidence."
+        },
+        {
+          "name": "get_evidence",
+          "description": "The evidence behind one edge: ``{edge, study_results[], publications[]}``."
+        },
+        {
+          "name": "get_gene_set",
+          "description": "Genes expressed in a cell type/state, or genes associated with a disease/phenotype."
+        },
+        {
+          "name": "query_atlas_expression",
+          "description": "Per-group expression summaries from the HECA atlases (every gene x group, no threshold)."
+        },
+        {
+          "name": "find_datasets",
+          "description": "Dataset registry records matching entities and filters, ranked, with ``matched`` reasons."
+        },
+        {
+          "name": "get_release",
+          "description": "The served KG release and service state: ``/v1/health``, ``/v1/ready`` and ``/v1/release``."
+        }
+      ]
     }
   ]
 }
