@@ -56,7 +56,9 @@ def route(path, q):
         curie = unquote(path.removeprefix("/v1/entities/"))
         if curie != "HGNC:10012":
             return 404, err("not_found", f"{curie} is not in {RELEASE}")
-        return 200, env({"node": {**RHO, "symbol": "RHO"}, "degree_by_predicate": {"biolink:expressed_in": {"out": 1, "in": 0}}})
+        return 200, env(
+            {"node": {**RHO, "symbol": "RHO"}, "degree_by_predicate": {"biolink:expressed_in": {"out": 1, "in": 0}}}
+        )
     if path == "/v1/relationships":
         if "subject" not in one and "object" not in one:
             return 400, err("missing_anchor", "give subject or object (or both)")
