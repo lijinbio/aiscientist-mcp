@@ -74,4 +74,10 @@ aiscientist-mcp --server visionkb-kg-mcp call search_entities '{"q": "RHO"}'
 Tested on (2026-11-09, visionkb-api 0.1.1 served by visionkb-deploy 0.1.1 with Neo4j 2026.10.1 CE and
 PostgreSQL 17.11 on an HPC node):
 
-<!-- TESTED-ON -->
+- Fake API (CI, Python 3.12 and 3.13; locally 3.13.18): 18 tests pass.
+- Fixture release `visionkb-0000.01.0` (synthetic values on real identifiers; 44 nodes, 41 relationships): the live
+  module passes (8/8), and a recorded chain of 15 stdio calls through `aiscientist-mcp` (release -> RHO ->
+  `expressed_in` edges -> evidence -> retinal rod cell gene set and datasets -> atlas expression at both levels ->
+  retinitis pigmentosa genes -> three error cases) returns `status` ok for the 12 queries and the expected
+  `not_found`, `missing_anchor` and `invalid_argument` errors; the largest result is 5,323 characters.
+- First real release `visionkb-2026.11.0`: pending (not yet published when this version was tested).
