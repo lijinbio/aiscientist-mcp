@@ -8,7 +8,8 @@ FROM mambaorg/micromamba:2.10.0-debian12-slim
 LABEL org.opencontainers.image.source="https://github.com/lijinbio/aiscientist-mcp" \
       org.opencontainers.image.description="MCP server visionkb-kg" \
       org.opencontainers.image.licenses="MIT"
-RUN micromamba install -y -n base -c conda-forge python=3.13.18 mcp=2.3.0 \
+# setuptools: the build backend for the --no-build-isolation install (the base env has none).
+RUN micromamba install -y -n base -c conda-forge python=3.13.18 mcp=2.3.0 setuptools=84.2.0 \
     && micromamba clean -a -y
 COPY --chown=$MAMBA_USER:$MAMBA_USER packages/common /opt/aiscientist-mcp/packages/common
 COPY --chown=$MAMBA_USER:$MAMBA_USER packages/visionkb-kg /opt/aiscientist-mcp/packages/visionkb-kg
