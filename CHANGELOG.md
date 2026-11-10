@@ -28,6 +28,9 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
   `VISIONKB_API_TOKEN_FILE` (bearer token read from a file, never logged), `VISIONKB_TIMEOUT_S`. Standard-library
   HTTP; redirects are refused so the token only reaches the configured host. Container
   `containers/visionkb-kg/Dockerfile`; CI install and container gates.
+- List results carry `paging` (`returned`, `offset`, `limit`, `total`, `trimmed`, `next_offset`, `trimmed_lists`,
+  `summary`). The API may return fewer rows than `limit` to stay within its character cap, so the next page starts
+  at `next_offset` (offset + rows returned), not offset + limit. A trimmed page is also flagged in `warnings`.
 
 ## common 0.0.2 - 2026-11-04
 

@@ -11,6 +11,9 @@ from urllib.parse import parse_qs, unquote, urlsplit
 RELEASE = "visionkb-0000.01.0"
 TOKEN = "synthetic-test-token-0123456789"
 EDGE = "visionkb:e-" + "0" * 39 + "1"
+EDGE_TRIM = "visionkb:e-" + "0" * 39 + "2"  # evidence whose study_results the fake API trims
+TRIM_GENE = "HGNC:5"  # A1BG: the fake API trims its relationships to at most TRIM_CAP rows per response
+TRIM_TOTAL, TRIM_CAP = 7, 3
 RHO = {"id": "HGNC:10012", "name": "rhodopsin", "category": ["biolink:Gene"]}
 ROD = {"id": "CL:0000604", "name": "retinal rod cell", "category": ["biolink:Cell"]}
 REL = {
@@ -38,6 +41,21 @@ def err(code, message):
     return env(None, status="error", error={"code": code, "message": message})
 
 
+def trim_note(label, n, full):
+    """The warning visionkb-api adds when it cuts a list to its character cap (envelope.fit)."""
+    return f"{label}: returned {n} of {full} items to stay within 24000 characters; page with limit/offset"
+
+
+def trimmed_page(q):
+    """Rows offset..offset+limit of TRIM_TOTAL edges, cut to TRIM_CAP the way the API cuts to its character cap."""
+    lim, off = int(q.get("limit", 50)), int(q.get("offset", 0))
+    full = [{**REL, "edge_id": f"visionkb:e-{i:040x}"} for i in range(off, min(off + lim, TRIM_TOTAL))]
+    rows, warnings = full[:TRIM_CAP], []
+    if len(rows) < len(full):
+        warnings.append(trim_note("data", len(rows), len(full)))
+    return env(rows, page={"limit": lim, "offset": off, "total": TRIM_TOTAL}, warnings=warnings)
+
+
 def route(path, q):
     """(http status, body) for a GET; ``q`` is parse_qs output."""
     one = {k: v[0] for k, v in q.items()}
@@ -62,7 +80,16 @@ def route(path, q):
     if path == "/v1/relationships":
         if "subject" not in one and "object" not in one:
             return 400, err("missing_anchor", "give subject or object (or both)")
+        if one.get("subject") == TRIM_GENE:
+            return 200, trimmed_page(one)
         return 200, env([REL], page=page)
+    if path == f"/v1/evidence/{EDGE_TRIM}":  # 9 study results; this page of `limit` is cut to 2
+        n_page = min(int(one.get("limit", 50)), 9 - int(one.get("offset", 0)))
+        srs = [
+            {"id": f"visionkb:sr-{i}", "edge_id": EDGE_TRIM, "dataset_id": "visionkb:ds-hrca-snrna"} for i in range(2)
+        ]
+        return 200, env({"edge": REL, "study_results": srs, "publications": []}, page={**page, "total": 9},
+                        warnings=[trim_note("data.study_results", 2, n_page)])  # fmt: skip
     if path.startswith("/v1/evidence/"):
         sr = {"id": "visionkb:sr-1", "edge_id": EDGE, "dataset_id": "visionkb:ds-hrca-snrna", "level": "majorclass",
               "group_label": "Rod", "n_cells": 500, "pct_expressing": 0.9}  # fmt: skip

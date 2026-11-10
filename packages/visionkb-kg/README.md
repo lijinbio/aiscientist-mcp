@@ -33,8 +33,16 @@ Every result is the API envelope plus two fields:
 ```
 
 - `kg_release` and `warnings` are in every result; cite `kg_release` (and `edge_id`) with any claim.
-- List tools default to `limit` 20 (the API caps at 200 rows and about 24,000 characters per response, and says so
-  in `warnings` when it trims).
+- List tools default to `limit` 20. The API caps rows (200) and response size (about 24,000 characters); to stay
+  within the size cap it may return **fewer rows than `limit`**, says so in `warnings`, and keeps `page.limit` at the
+  requested value.
+- List tools (`search_entities`, `get_relationships`, `get_evidence` for `study_results`, `get_gene_set`,
+  `query_atlas_expression`, `find_datasets`) return one page and a `paging` block:
+  `{returned, offset, limit, total, trimmed, next_offset, trimmed_lists, summary}`. For the next page pass
+  `offset = paging.next_offset` (= offset + rows returned; null on the last page). **Never step by `offset + limit`**:
+  after a trimmed page that skips rows. A trimmed page also gets `paging.summary` in `warnings`, e.g.
+  `trimmed: 7 of 20 rows returned to stay within the API's 24000 characters (5482 in total); next page: offset=7 ...`.
+  `search_entities` has no offset (ranked top-k): when it is trimmed, lower `limit` or narrow `q`.
 - Errors are results, not exceptions: `status: "error"` with `error.code` from the API (`not_found`,
   `missing_anchor`, `invalid_curie`, `unknown_predicate`, `too_many_genes`, `unauthorized`, `not_ready`, ...) or
   from the client (`not_configured`, `invalid_setting`, `token_unreadable`, `invalid_argument`, `unreachable`,
@@ -65,7 +73,9 @@ aiscientist-mcp --server visionkb-kg-mcp call search_entities '{"q": "RHO"}'
 - Unit and MCP tests (`tests/test_visionkb_kg_api.py`, `tests/test_visionkb_kg_server.py`) run against a fake
   API on 127.0.0.1 with canned envelopes (real identifiers, synthetic values; no external network): settings,
   token handling, URL and query building, every tool's endpoint and parameters, output schemas, error results
-  (HTTP errors, non-JSON, redirects, unreachable, timeout), and the stdio transport through `aiscientist-mcp`.
+  (HTTP errors, non-JSON, redirects, unreachable, timeout), the stdio transport through `aiscientist-mcp`, and
+  paging over trimmed responses. In that test the fake API cuts each page to 3 rows the way the real one cuts to
+  its character cap: following `next_offset` returns all 7 edges once, while stepping by `limit` loses 2.
 - `tests/test_visionkb_kg_live.py` runs only when `VISIONKB_API_URL` is set. It follows the graph from a gene
   (`VISIONKB_LIVE_GENE`, default `RHO`): release -> gene -> `expressed_in` edge -> evidence -> the edge's cell type
   -> gene set and datasets, plus atlas expression and error cases, and checks that every result fits in 26,000

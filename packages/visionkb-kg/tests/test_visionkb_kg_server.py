@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 
-from vkg_fake import EDGE, RELEASE, TOKEN
+from vkg_fake import EDGE, EDGE_TRIM, RELEASE, TOKEN, TRIM_GENE, TRIM_TOTAL
 
 TOOLS = {"search_entities", "get_entity", "get_relationships", "get_evidence", "get_gene_set",
          "query_atlas_expression", "find_datasets", "get_release"}  # fmt: skip
@@ -139,3 +139,34 @@ def test_stdio_transport(api_env):
     r = json.loads(out.stdout)
     assert r["status"] == "ok" and r["data"][0]["id"] == "HGNC:10012" and r["kg_release"] == RELEASE
     assert TOKEN not in out.stdout + out.stderr
+
+
+def test_trimmed_pages_follow_next_offset(api_env):
+    """The fake API cuts each page to 3 rows (as the real one cuts to its character cap): following
+    paging.next_offset returns every edge once; stepping by limit would skip rows."""
+    fake, _ = api_env
+
+    async def flow(c):
+        pages, offset = [], 0
+        while offset is not None and len(pages) < 10:
+            r = sc(await c.call_tool("get_relationships", {"subject": TRIM_GENE, "limit": 5, "offset": offset}))
+            pages.append(r)
+            offset = r["paging"]["next_offset"]
+        by_limit = [sc(await c.call_tool("get_relationships", {"subject": TRIM_GENE, "limit": 5, "offset": o}))
+                    for o in (0, 5)]  # fmt: skip
+        ev = sc(await c.call_tool("get_evidence", {"edge_id": EDGE_TRIM, "limit": 5}))
+        return pages, by_limit, ev
+
+    fake.log.clear()
+    pages, by_limit, ev = run(flow)
+    assert [p["paging"]["offset"] for p in pages] == [0, 3, 6]
+    assert [p["paging"]["trimmed"] for p in pages] == [True, True, False]
+    assert pages[0]["paging"]["summary"].startswith("trimmed: 3 of 5 rows returned")
+    assert any(w.startswith("data: returned 3 of 5 items") for w in pages[0]["warnings"])  # the API's note is kept
+    ids = [e["edge_id"] for p in pages for e in p["data"]]
+    assert len(ids) == len(set(ids)) == TRIM_TOTAL
+    skipped = {e["edge_id"] for p in by_limit for e in p["data"]}
+    assert len(skipped) == 5 < TRIM_TOTAL  # offset + limit silently loses 2 of the 7 edges
+    p = ev["paging"]
+    assert (p["returned"], p["total"], p["trimmed"], p["next_offset"]) == (2, 9, True, 2)
+    assert ev["warnings"][-1] == p["summary"]

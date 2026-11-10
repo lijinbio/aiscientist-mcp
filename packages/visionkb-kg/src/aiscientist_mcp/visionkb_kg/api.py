@@ -19,6 +19,11 @@ USER_AGENT = f"aiscientist-mcp-visionkb-kg/{__version__}"
 MAX_BODY_BYTES = 4 * 1024 * 1024  # the API caps a response near 24,000 characters; anything far larger is wrong
 CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,39}:[^\s/?#%\\]{1,200}$")
 ENVELOPE_KEYS = ("status", "kg_release", "data", "page", "warnings", "error")
+# visionkb-api's note when it cuts a list to fit its character cap (D13), e.g.
+# "data: returned 7 of 20 items to stay within 24000 characters; page with limit/offset"
+TRIM_RE = re.compile(
+    r"^(data(?:\.[A-Za-z_][A-Za-z0-9_]*)?): returned (\d+) of (\d+) items to stay within (\d+) characters"
+)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -178,3 +183,58 @@ def get(settings: Settings, path: str, params: dict[str, Any] | None = None, *, 
 def segment(value: str) -> str:
     """Quote one validated path segment (keeps ':' readable)."""
     return quote(value, safe=":")
+
+
+def add_paging(env: dict, list_key: str | None = None, *, has_offset: bool = True) -> dict:
+    """Add ``paging``: how many rows came back and where the next page starts.
+
+    The API may return FEWER rows than ``limit``: it trims the list to stay within its character cap and says so
+    in ``warnings``, while ``page.limit`` stays the requested limit. The next page therefore starts at
+    ``offset + rows returned`` (``paging.next_offset``), never at ``offset + limit``, or rows are skipped.
+    ``list_key`` names the paged list inside a dict ``data`` (``study_results`` for get_evidence).
+    """
+    env["paging"] = None
+    data = env.get("data")
+    rows = data.get(list_key) if list_key and isinstance(data, dict) else data
+    if env.get("status") != "ok" or not isinstance(rows, list):
+        return env
+    page = env.get("page") or {}
+    label = f"data.{list_key}" if list_key else "data"
+    trims = {}
+    for w in env.get("warnings") or []:
+        m = TRIM_RE.match(w)
+        if m:
+            trims[m.group(1)] = {"returned": int(m.group(2)), "of": int(m.group(3)), "max_chars": int(m.group(4))}
+    n, off, lim, total = len(rows), page.get("offset") or 0, page.get("limit"), page.get("total")
+    t = trims.get(label)
+    trimmed = bool(t) and t["returned"] < t["of"]
+    more = (off + n < total) if total is not None else False
+    nxt = off + n if more and has_offset and n > 0 else None
+    if trimmed:
+        summary = (
+            f"trimmed: {n} of {t['of']} rows returned to stay within the API's {t['max_chars']} characters"
+            + (f" ({total} in total)" if total is not None else "")
+            + (f"; next page: offset={nxt} (offset + rows returned, not offset + limit)" if nxt is not None else "")
+            + ("" if has_offset else "; this endpoint has no offset: lower limit or narrow the query")
+        )
+    elif total is None:
+        summary = f"{n} rows returned (ranked top {lim}; no total)"
+    elif nxt is not None:
+        summary = f"rows {off + 1}-{off + n} of {total}; next page: offset={nxt}"
+    else:
+        summary = (
+            f"rows {off + 1}-{off + n} of {total}; last page" if n else f"no rows at offset {off} ({total} in total)"
+        )
+    env["paging"] = {
+        "returned": n,
+        "offset": off,
+        "limit": lim,
+        "total": total,
+        "trimmed": trimmed,
+        "next_offset": nxt,
+        "trimmed_lists": {k: {"returned": v["returned"], "of": v["of"]} for k, v in trims.items()},
+        "summary": summary,
+    }
+    if trimmed:
+        env["warnings"].append(summary)
+    return env

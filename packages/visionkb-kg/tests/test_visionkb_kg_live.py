@@ -129,3 +129,30 @@ def test_errors(tmp_path, monkeypatch):
     monkeypatch.setenv("VISIONKB_API_TOKEN_FILE", str(bad))
     r = call("search_entities", {"q": GENE})
     assert (r["status"], r["http_status"], r["error"]["code"]) == ("error", 401, "unauthorized")
+
+
+def test_paging_follows_next_offset(walk):
+    """Walk the gene's edges with a small limit via paging.next_offset: every edge exactly once."""
+    gid, total, ids, offset = walk["gene"]["id"], None, [], 0
+    for _ in range(50):
+        r = ok("get_relationships", {"subject": gid, "limit": 7, "offset": offset})
+        p = r["paging"]
+        assert p["returned"] == len(r["data"]) <= 7 and p["offset"] == offset
+        total = p["total"]
+        ids += [e["edge_id"] for e in r["data"]]
+        offset = p["next_offset"]
+        if offset is None:
+            break
+    assert len(ids) == len(set(ids)) == total
+
+
+def test_paging_large_page():
+    """A large request: if the API trims it, paging says so and next_offset = offset + rows returned."""
+    r = ok("get_gene_set", {"entity": "CL:0000604", "limit": 200})
+    p = r["paging"]
+    assert p["returned"] == len(r["data"]) <= 200
+    if p["trimmed"]:
+        assert p["returned"] < 200 and p["next_offset"] == p["returned"]
+        assert any(w.startswith("data: returned") for w in r["warnings"]) and r["warnings"][-1] == p["summary"]
+    elif p["total"] is not None and p["total"] > p["returned"]:
+        assert p["next_offset"] == p["returned"]

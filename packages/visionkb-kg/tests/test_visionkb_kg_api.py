@@ -6,7 +6,7 @@ import socket
 import pytest
 from aiscientist_mcp.visionkb_kg import api
 from aiscientist_mcp.visionkb_kg.settings import ClientError, Settings
-from vkg_fake import RELEASE, TOKEN
+from vkg_fake import RELEASE, TOKEN, trim_note
 
 
 def cfg(url, token_file=None, timeout=5.0):
@@ -120,3 +120,55 @@ def test_not_an_envelope():
     assert (r["status"], r["error"]["code"]) == ("error", "bad_response")
     r = api._normalize({"status": "ok", "kg_release": RELEASE, "data": 1}, 500, {"path": "/v1/x", "params": {}})
     assert (r["status"], r["error"]["code"], r["warnings"]) == ("error", "http_500", [])
+
+
+def _env(rows, page, warnings=(), data=None):
+    return {"status": "ok", "kg_release": RELEASE, "data": rows if data is None else data, "page": page,
+            "warnings": list(warnings), "error": None}  # fmt: skip
+
+
+def test_paging_trimmed_list():
+    rows = [{"i": i} for i in range(7)]
+    r = api.add_paging(_env(rows, {"limit": 20, "offset": 0, "total": 20}, [trim_note("data", 7, 20)]))
+    p = r["paging"]
+    assert (p["returned"], p["limit"], p["total"], p["trimmed"], p["next_offset"]) == (7, 20, 20, True, 7)
+    assert p["summary"].startswith("trimmed: 7 of 20 rows returned") and "offset=7" in p["summary"]
+    assert p["trimmed_lists"] == {"data": {"returned": 7, "of": 20}}
+    assert r["warnings"][-1] == p["summary"]  # visible next to the API's own note
+
+
+def test_paging_untrimmed_pages():
+    mid = api.add_paging(_env([{}] * 10, {"limit": 10, "offset": 0, "total": 132}))["paging"]
+    assert (mid["trimmed"], mid["next_offset"], mid["summary"]) == (False, 10, "rows 1-10 of 132; next page: offset=10")
+    last = api.add_paging(_env([{}] * 2, {"limit": 10, "offset": 130, "total": 132}))
+    assert (last["paging"]["next_offset"], last["paging"]["summary"]) == (None, "rows 131-132 of 132; last page")
+    assert last["warnings"] == []
+    empty = api.add_paging(_env([], {"limit": 10, "offset": 200, "total": 132}))["paging"]
+    assert (empty["returned"], empty["next_offset"]) == (0, None)
+
+
+def test_paging_search_has_no_offset():
+    p = api.add_paging(_env([{}] * 4, {"limit": 50, "offset": 0, "total": None}, [trim_note("data", 4, 50)]),
+                       has_offset=False)["paging"]  # fmt: skip
+    assert (p["trimmed"], p["next_offset"], p["total"]) == (True, None, None)
+    assert "no offset" in p["summary"]
+    p = api.add_paging(_env([{}] * 4, {"limit": 5, "offset": 0, "total": None}), has_offset=False)["paging"]
+    assert (p["trimmed"], p["summary"]) == (False, "4 rows returned (ranked top 5; no total)")
+
+
+def test_paging_nested_list_and_other_lists():
+    data = {"edge": {}, "study_results": [{}] * 3, "publications": ["PMID:1"]}
+    w = [trim_note("data.publications", 1, 40)]  # another list cut: reported, but the paged list is complete
+    p = api.add_paging(_env(None, {"limit": 3, "offset": 0, "total": 3}, w, data=data), "study_results")["paging"]
+    assert (p["returned"], p["trimmed"], p["next_offset"]) == (3, False, None)
+    assert p["trimmed_lists"] == {"data.publications": {"returned": 1, "of": 40}}
+    w = [trim_note("data.study_results", 2, 3)]
+    data["study_results"] = [{}] * 2
+    p = api.add_paging(_env(None, {"limit": 3, "offset": 0, "total": 9}, w, data=data), "study_results")["paging"]
+    assert (p["returned"], p["trimmed"], p["next_offset"]) == (2, True, 2)
+
+
+def test_paging_absent_on_errors_and_non_lists():
+    err = api.error_envelope("not_found", "x")
+    assert api.add_paging(err)["paging"] is None
+    assert api.add_paging(_env(None, None, data={"node": {}}), "study_results")["paging"] is None

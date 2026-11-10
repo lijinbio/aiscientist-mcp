@@ -15,7 +15,7 @@ from aiscientist_mcp.common.server import make_server, quiet, run_stdio, tool
 from pydantic import Field
 
 from . import SERVER_NAME
-from .api import check_curie, error_envelope, get, segment, split_list
+from .api import add_paging, check_curie, error_envelope, get, segment, split_list
 from .settings import ClientError, Settings
 
 KnowledgeLevel = Literal[
@@ -23,7 +23,15 @@ KnowledgeLevel = Literal[
     "statistical_association", "text_co_occurrence",
 ]  # fmt: skip
 Limit = Annotated[int, Field(ge=1, le=200, description="rows to return (the API caps at 200)")]
-Offset = Annotated[int, Field(ge=0, le=10_000, description="rows to skip, for paging")]
+Offset = Annotated[
+    int,
+    Field(
+        ge=0,
+        le=10_000,
+        description="rows to skip. For the next page pass paging.next_offset (offset + rows returned): the API may "
+        "return fewer rows than limit, so offset + limit skips rows",
+    ),
+]
 
 server = make_server(
     SERVER_NAME,
@@ -32,6 +40,8 @@ server = make_server(
     "with search_entities; then get_relationships (edges with knowledge_level and source) and get_evidence "
     "(StudyResults, publications) for an edge_id; get_gene_set; query_atlas_expression; find_datasets. Every "
     "result carries kg_release and warnings: cite kg_release and edge_id with any claim, and read warnings. "
+    "List results can hold fewer rows than limit (the API trims to ~24,000 characters): read paging.summary, and "
+    "page on with offset = paging.next_offset, never offset + limit. "
     "status 'error' means the API did not answer the question; do not substitute other knowledge for it.",
 )
 
@@ -52,6 +62,17 @@ class Request(TypedDict):
     params: dict[str, Any]
 
 
+class Paging(TypedDict):
+    returned: int  # rows in this result (may be fewer than limit: see trimmed)
+    offset: int
+    limit: int | None
+    total: int | None
+    trimmed: bool  # the API cut this page to fit its character cap
+    next_offset: int | None  # offset for the next page (offset + returned); null on the last page
+    trimmed_lists: dict[str, Any]  # every list the API cut: {"data": {"returned": n, "of": m}, ...}
+    summary: str  # e.g. "trimmed: 7 of 20 rows returned ...; next page: offset=7"
+
+
 class Result(TypedDict, total=False):
     status: Literal["ok", "error"]
     kg_release: str | None  # release that answered; null only when the API was not reached
@@ -61,6 +82,7 @@ class Result(TypedDict, total=False):
     error: ErrorInfo | None
     http_status: int
     request: Request
+    paging: Paging | None  # list tools only
 
 
 def _call(path: str, params: dict[str, Any] | None = None, *, auth: bool = True) -> dict:
@@ -87,7 +109,7 @@ def search_entities(
     null). Use the ``id`` (e.g. HGNC:10012 for RHO, CL:0000604 retinal rod cell) in the other tools.
     """
     with quiet():
-        return _call("/entities/search", {"q": q, "category": category, "limit": limit})
+        return add_paging(_call("/entities/search", {"q": q, "category": category, "limit": limit}), has_offset=False)
 
 
 @tool(server)
@@ -123,11 +145,11 @@ def get_relationships(
     primary_knowledge_source, publications (<= 5), evidence_count, status``. Pass ``edge_id`` to get_evidence.
     """
     with quiet():
-        return _call(
+        return add_paging(_call(
             "/relationships",
             {"subject": subject, "object": object, "predicate": predicate, "object_category": object_category,
              "knowledge_level": knowledge_level, "species": species, "limit": limit, "offset": offset},
-        )  # fmt: skip
+        ))  # fmt: skip
 
 
 @tool(server)
@@ -147,7 +169,7 @@ def get_evidence(
             e = check_curie(edge_id, "edge_id")
         except ClientError as exc:
             return _invalid(exc, "/evidence/{edge_id}")
-        return _call(f"/evidence/{segment(e)}", {"limit": limit, "offset": offset})
+        return add_paging(_call(f"/evidence/{segment(e)}", {"limit": limit, "offset": offset}), "study_results")
 
 
 @tool(server)
@@ -169,11 +191,11 @@ def get_gene_set(
     expression edges above the release's threshold: use query_atlas_expression for the full table.
     """
     with quiet():
-        return _call(
+        return add_paging(_call(
             "/gene-sets",
             {"entity": entity, "kind": kind, "dataset": dataset, "min_pct": min_pct, "descendants": descendants,
              "limit": limit, "offset": offset},
-        )  # fmt: skip
+        ))  # fmt: skip
 
 
 @tool(server)
@@ -195,11 +217,11 @@ def query_atlas_expression(
     n_donors_expressing. Values are descriptive; report donor support with any claim.
     """
     with quiet():
-        return _call(
+        return add_paging(_call(
             "/atlas/expression",
             {"genes": split_list(genes), "dataset": dataset, "level": level, "cell_type": cell_type, "sort": sort,
              "limit": limit, "offset": offset},
-        )  # fmt: skip
+        ))  # fmt: skip
 
 
 @tool(server)
@@ -221,11 +243,11 @@ def find_datasets(
     ``bind`` (path, name, role) for binding the atlas in an analysis. Paths are HPC-side metadata.
     """
     with quiet():
-        return _call(
+        return add_paging(_call(
             "/datasets",
             {"entities": split_list(entities), "species": species, "tissue": tissue, "assay": assay,
              "disease": disease, "limit": limit, "offset": offset},
-        )  # fmt: skip
+        ))  # fmt: skip
 
 
 @tool(server)
