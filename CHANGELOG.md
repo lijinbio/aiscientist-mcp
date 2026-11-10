@@ -17,6 +17,22 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 - A README catalog grouped by category, generated with `servers.json` by `index_servers.py`
   (`--check` in CI).
 
+## visionkb-kg 0.0.1 - Unreleased
+
+### Added
+
+- New server `visionkb-kg` (category `knowledge-graph`): read-only tools over the VisionKB knowledge graph API
+  (visionkb-api `/v1`): `search_entities`, `get_entity`, `get_relationships`, `get_evidence`, `get_gene_set`,
+  `query_atlas_expression`, `find_datasets`, `get_release`. Each result is the API envelope with `kg_release` and
+  `warnings`; failures are `status: "error"` with the API's code, never a fallback. Settings `VISIONKB_API_URL`,
+  `VISIONKB_API_TOKEN_FILE` (bearer token read from a file, never logged), `VISIONKB_TIMEOUT_S`. Standard-library
+  HTTP; redirects are refused so the token only reaches the configured host. Container
+  `containers/visionkb-kg/Dockerfile`; CI install and container gates.
+- List results carry `paging` (`returned`, `offset`, `limit`, `total`, `trimmed`, `next_offset`, `trimmed_lists`,
+  `summary`). The API may return fewer rows than `limit` to stay within its character cap, so the next page starts
+  at `next_offset` (offset + rows returned), not offset + limit. A trimmed page is also flagged in `warnings`.
+  Results stay within 24,000 characters (compact JSON); rows are dropped from the end if this client's fields would exceed it.
+
 ## common 0.0.2 - 2026-11-04
 
 ### Added

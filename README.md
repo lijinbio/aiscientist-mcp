@@ -36,6 +36,12 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 
 <!-- BEGIN SERVERS -->
 
+### knowledge-graph
+
+| Server | Version | Tools | Image |
+| --- | --- | --- | --- |
+| [`visionkb-kg`](packages/visionkb-kg) | 0.0.1 | `search_entities`, `get_entity`, `get_relationships`, `get_evidence`, `get_gene_set`, `query_atlas_expression`, `find_datasets`, `get_release` | `ghcr.io/lijinbio/mcp-visionkb-kg:0.0.1` |
+
 ### single-cell
 
 | Server | Version | Tools | Image |
