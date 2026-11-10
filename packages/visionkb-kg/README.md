@@ -94,6 +94,8 @@ PostgreSQL 17.11 on an HPC node):
   retinitis pigmentosa genes -> three error cases) returns `status` ok for the 12 queries and the expected
   `not_found`, `missing_anchor` and `invalid_argument` errors; the largest result is 5,323 characters.
 - First real release `visionkb-2026.11.0` (2,783,649 nodes, 5,119,626 relationships; 13 HECA atlases): the live module
-  passes (8/8) and the same 15-call chain returns `status` ok for the 12 queries, all carrying `kg_release`, plus the
-  three expected errors. The largest result is 11,040 characters (`get_relationships`, 10 rows). Each stdio call
-  takes about 3 s including server start-up.
+  passes (10/10, including two paging tests). A 17-call stdio chain returns `status` ok for the 14 queries, all
+  carrying `kg_release`, plus the three expected errors. A `get_gene_set` request with `limit=200` was trimmed by
+  the API to 51 rows; the client kept 50 (23,851 characters), so `next_offset=50`, and the next page returned
+  rows 51-100 with no overlap. The largest result is 23,882 compact characters. Each stdio call takes about 3 s
+  including server start-up.
