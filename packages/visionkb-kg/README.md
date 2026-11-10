@@ -80,4 +80,7 @@ PostgreSQL 17.11 on an HPC node):
   `expressed_in` edges -> evidence -> retinal rod cell gene set and datasets -> atlas expression at both levels ->
   retinitis pigmentosa genes -> three error cases) returns `status` ok for the 12 queries and the expected
   `not_found`, `missing_anchor` and `invalid_argument` errors; the largest result is 5,323 characters.
-- First real release `visionkb-2026.11.0`: pending (not yet published when this version was tested).
+- First real release `visionkb-2026.11.0` (2,783,649 nodes, 5,119,626 relationships; 13 HECA atlases): the live module
+  passes (8/8) and the same 15-call chain returns `status` ok for the 12 queries, all carrying `kg_release`, plus the
+  three expected errors. The largest result is 11,040 characters (`get_relationships`, 10 rows). Each stdio call
+  takes about 3 s including server start-up.
