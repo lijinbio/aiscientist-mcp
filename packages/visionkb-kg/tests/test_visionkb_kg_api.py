@@ -187,6 +187,8 @@ def test_paging_keeps_result_within_budget():
     assert p["returned"] == len(r["data"]) < 50 and p["next_offset"] == p["returned"] and p["trimmed"]
     assert p["trimmed_lists"]["data"] == {"returned": p["returned"], "of": 200}
     assert p["summary"].startswith(f"trimmed: {p['returned']} of 200 rows returned to stay within 24000 characters")
+    note = next(w for w in r["warnings"] if w.startswith("data: returned 50 of 200"))
+    assert note.endswith(f"[this result keeps {p['returned']}; see paging]")  # the API's count no longer applies
     full = api.result_size(api.add_paging(_env([{"a": "x" * 1000}] * 3, {"limit": 3, "offset": 0, "total": 3})))
     small = api.add_paging(_env([{"a": "x" * 1000}] * 3, {"limit": 3, "offset": 0, "total": 3}), max_chars=full - 1)
     assert api.result_size(small) <= full - 1

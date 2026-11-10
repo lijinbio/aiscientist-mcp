@@ -262,7 +262,13 @@ def add_paging(
             "trimmed_lists": lists,
             "summary": summary,
         }
-        env["warnings"] = base_warnings + ([summary] if trimmed else [])
+        warnings = list(base_warnings)
+        if t and n < t["returned"]:  # the API's note counts rows this client dropped: say so, keep the API's text
+            warnings = [
+                f"{w} [this result keeps {n}; see paging]" if TRIM_RE.match(w) and w.startswith(f"{label}:") else w
+                for w in warnings
+            ]
+        env["warnings"] = warnings + ([summary] if trimmed else [])
         return result_size(env)
 
     if build(len(rows)) > max_chars:
