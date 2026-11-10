@@ -185,13 +185,25 @@ def segment(value: str) -> str:
     return quote(value, safe=":")
 
 
-def add_paging(env: dict, list_key: str | None = None, *, has_offset: bool = True) -> dict:
+RESULT_MAX_CHARS = 24_000  # contracts D13: a tool result (compact JSON) stays within the AiScientist tool-result cap
+
+
+def result_size(env: dict) -> int:
+    """Characters of the compact JSON result (the API measures its envelope the same way)."""
+    return len(json.dumps(env, ensure_ascii=False, separators=(",", ":"), default=str))
+
+
+def add_paging(
+    env: dict, list_key: str | None = None, *, has_offset: bool = True, max_chars: int = RESULT_MAX_CHARS
+) -> dict:
     """Add ``paging``: how many rows came back and where the next page starts.
 
     The API may return FEWER rows than ``limit``: it trims the list to stay within its character cap and says so
     in ``warnings``, while ``page.limit`` stays the requested limit. The next page therefore starts at
     ``offset + rows returned`` (``paging.next_offset``), never at ``offset + limit``, or rows are skipped.
     ``list_key`` names the paged list inside a dict ``data`` (``study_results`` for get_evidence).
+    If this client's own fields (``request``, ``paging``) push the result over ``max_chars``, rows are dropped
+    from the end of the (ranked) list the same way, and ``paging`` reports the rows actually returned.
     """
     env["paging"] = None
     data = env.get("data")
@@ -205,36 +217,61 @@ def add_paging(env: dict, list_key: str | None = None, *, has_offset: bool = Tru
         m = TRIM_RE.match(w)
         if m:
             trims[m.group(1)] = {"returned": int(m.group(2)), "of": int(m.group(3)), "max_chars": int(m.group(4))}
-    n, off, lim, total = len(rows), page.get("offset") or 0, page.get("limit"), page.get("total")
+    off, lim, total = page.get("offset") or 0, page.get("limit"), page.get("total")
     t = trims.get(label)
-    trimmed = bool(t) and t["returned"] < t["of"]
-    more = (off + n < total) if total is not None else False
-    nxt = off + n if more and has_offset and n > 0 else None
-    if trimmed:
-        summary = (
-            f"trimmed: {n} of {t['of']} rows returned to stay within the API's {t['max_chars']} characters"
-            + (f" ({total} in total)" if total is not None else "")
-            + (f"; next page: offset={nxt} (offset + rows returned, not offset + limit)" if nxt is not None else "")
-            + ("" if has_offset else "; this endpoint has no offset: lower limit or narrow the query")
-        )
-    elif total is None:
-        summary = f"{n} rows returned (ranked top {lim}; no total)"
-    elif nxt is not None:
-        summary = f"rows {off + 1}-{off + n} of {total}; next page: offset={nxt}"
-    else:
-        summary = (
-            f"rows {off + 1}-{off + n} of {total}; last page" if n else f"no rows at offset {off} ({total} in total)"
-        )
-    env["paging"] = {
-        "returned": n,
-        "offset": off,
-        "limit": lim,
-        "total": total,
-        "trimmed": trimmed,
-        "next_offset": nxt,
-        "trimmed_lists": {k: {"returned": v["returned"], "of": v["of"]} for k, v in trims.items()},
-        "summary": summary,
-    }
-    if trimmed:
-        env["warnings"].append(summary)
+    page_rows = t["of"] if t else len(rows)  # rows this page held before any trimming
+    cap = min(t["max_chars"], max_chars) if t else max_chars
+    base_warnings = list(env.get("warnings") or [])
+
+    def build(n: int) -> int:
+        kept = rows[:n]
+        if list_key:
+            data[list_key] = kept
+        else:
+            env["data"] = kept
+        trimmed = n < page_rows
+        more = (off + n < total) if total is not None else False
+        nxt = off + n if more and has_offset and n > 0 else None
+        if trimmed:
+            summary = (
+                f"trimmed: {n} of {page_rows} rows returned to stay within {cap} characters"
+                + (f" ({total} in total)" if total is not None else "")
+                + (f"; next page: offset={nxt} (offset + rows returned, not offset + limit)" if nxt is not None else "")
+                + ("" if has_offset else "; this endpoint has no offset: lower limit or narrow the query")
+            )
+        elif total is None:
+            summary = f"{n} rows returned (ranked top {lim}; no total)"
+        elif nxt is not None:
+            summary = f"rows {off + 1}-{off + n} of {total}; next page: offset={nxt}"
+        else:
+            summary = (
+                f"rows {off + 1}-{off + n} of {total}; last page"
+                if n
+                else f"no rows at offset {off} ({total} in total)"
+            )
+        lists = {k: {"returned": v["returned"], "of": v["of"]} for k, v in trims.items()}
+        if trimmed:
+            lists[label] = {"returned": n, "of": page_rows}
+        env["paging"] = {
+            "returned": n,
+            "offset": off,
+            "limit": lim,
+            "total": total,
+            "trimmed": trimmed,
+            "next_offset": nxt,
+            "trimmed_lists": lists,
+            "summary": summary,
+        }
+        env["warnings"] = base_warnings + ([summary] if trimmed else [])
+        return result_size(env)
+
+    if build(len(rows)) > max_chars:
+        lo, hi = 0, len(rows) - 1
+        while lo < hi:  # largest n whose result fits
+            mid = (lo + hi + 1) // 2
+            if build(mid) <= max_chars:
+                lo = mid
+            else:
+                hi = mid - 1
+        build(lo)
     return env

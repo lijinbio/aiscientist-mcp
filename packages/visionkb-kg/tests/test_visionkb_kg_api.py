@@ -172,3 +172,24 @@ def test_paging_absent_on_errors_and_non_lists():
     err = api.error_envelope("not_found", "x")
     assert api.add_paging(err)["paging"] is None
     assert api.add_paging(_env(None, None, data={"node": {}}), "study_results")["paging"] is None
+
+
+def test_paging_keeps_result_within_budget():
+    """API page just under its cap (23,000 chars) + this client's fields would exceed 24,000: rows are dropped from
+    the end and next_offset follows the rows actually returned."""
+    rows = [{"gene_id": f"HGNC:{i}", "pad": "x" * 450} for i in range(50)]
+    env = _env(rows, {"limit": 200, "offset": 0, "total": 5482}, [trim_note("data", 50, 200)])
+    env["request"] = {"path": "/v1/gene-sets", "params": {"entity": "CL:0000604", "limit": 200}}
+    assert api.result_size(env) > 23_000
+    r = api.add_paging(env)
+    p = r["paging"]
+    assert api.result_size(r) <= api.RESULT_MAX_CHARS
+    assert p["returned"] == len(r["data"]) < 50 and p["next_offset"] == p["returned"] and p["trimmed"]
+    assert p["trimmed_lists"]["data"] == {"returned": p["returned"], "of": 200}
+    assert p["summary"].startswith(f"trimmed: {p['returned']} of 200 rows returned to stay within 24000 characters")
+    full = api.result_size(api.add_paging(_env([{"a": "x" * 1000}] * 3, {"limit": 3, "offset": 0, "total": 3})))
+    small = api.add_paging(_env([{"a": "x" * 1000}] * 3, {"limit": 3, "offset": 0, "total": 3}), max_chars=full - 1)
+    assert api.result_size(small) <= full - 1
+    assert (small["paging"]["returned"], small["paging"]["next_offset"], small["paging"]["trimmed"]) == (2, 2, True)
+    none_fit = api.add_paging(_env([{"a": "x" * 1000}] * 3, {"limit": 3, "offset": 0, "total": 3}), max_chars=50)
+    assert (none_fit["paging"]["returned"], none_fit["paging"]["next_offset"]) == (0, None)  # never loop on one offset

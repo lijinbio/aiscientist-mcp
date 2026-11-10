@@ -18,7 +18,7 @@ import pytest
 pytestmark = pytest.mark.skipif(not os.environ.get("VISIONKB_API_URL"), reason="VISIONKB_API_URL not set")
 GENE = os.environ.get("VISIONKB_LIVE_GENE", "RHO")
 RELEASE_RE = re.compile(r"^visionkb-\d{4}\.\d{2}\.\d+$")
-MAX_CHARS = 26_000  # the API fits each envelope in 24,000 characters; http_status and request add a little
+MAX_CHARS = 24_000  # D13: every tool result, compact JSON, within the AiScientist tool-result cap
 
 
 def call(name, args=None):
@@ -32,7 +32,8 @@ def call(name, args=None):
             return r.structured_content
 
     r = asyncio.run(flow())
-    assert len(json.dumps(r)) <= MAX_CHARS, f"{name}: {len(json.dumps(r))} characters"
+    size = len(json.dumps(r, ensure_ascii=False, separators=(",", ":")))
+    assert size <= MAX_CHARS, f"{name}: {size} characters"
     assert isinstance(r["warnings"], list)
     return r
 

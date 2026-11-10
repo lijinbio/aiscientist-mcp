@@ -43,6 +43,9 @@ Every result is the API envelope plus two fields:
   after a trimmed page that skips rows. A trimmed page also gets `paging.summary` in `warnings`, e.g.
   `trimmed: 7 of 20 rows returned to stay within the API's 24000 characters (5482 in total); next page: offset=7 ...`.
   `search_entities` has no offset (ranked top-k): when it is trimmed, lower `limit` or narrow `q`.
+- Each tool result (compact JSON, including `request` and `paging`) stays within 24,000 characters. The API trims its
+  envelope to that size, and this client's extra fields can push a full page just over it; the client then drops rows
+  from the end of the ranked list the same way, and `paging` reports the rows actually returned.
 - Errors are results, not exceptions: `status: "error"` with `error.code` from the API (`not_found`,
   `missing_anchor`, `invalid_curie`, `unknown_predicate`, `too_many_genes`, `unauthorized`, `not_ready`, ...) or
   from the client (`not_configured`, `invalid_setting`, `token_unreadable`, `invalid_argument`, `unreachable`,

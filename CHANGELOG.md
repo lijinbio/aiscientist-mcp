@@ -31,6 +31,7 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 - List results carry `paging` (`returned`, `offset`, `limit`, `total`, `trimmed`, `next_offset`, `trimmed_lists`,
   `summary`). The API may return fewer rows than `limit` to stay within its character cap, so the next page starts
   at `next_offset` (offset + rows returned), not offset + limit. A trimmed page is also flagged in `warnings`.
+  Results stay within 24,000 characters (compact JSON); rows are dropped from the end if this client's fields would exceed it.
 
 ## common 0.0.2 - 2026-11-04
 
