@@ -9,7 +9,7 @@ description = "MCP server: VisionKB knowledge graph (read-only queries with evid
 requires-python = ">=3.11"
 license = "MIT"
 # HTTP with the standard library (urllib); pydantic (already required by mcp) for argument constraints.
-dependencies = ["aiscientist-mcp-common>=0.0.2", "pydantic>=2"]
+dependencies = ["aiscientist-mcp-common>=0.0.2", "pydantic>=2.14.3"]
 
 [project.optional-dependencies]
 test = ["pytest"]
