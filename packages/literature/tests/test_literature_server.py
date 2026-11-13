@@ -301,3 +301,13 @@ def test_readonly_prebuilt_index_gets_private_writable_copy(tmp_path, monkeypatc
     assert source.read_text() == '{"fixture":"prebuilt embeddings"}'
     assert not (index / ".tantivy-writer.lock").exists()
     assert _writable_index_root(shared, SimpleNamespace(workspace=workspace)) == str(root)
+
+
+def test_paperqa_breadth_changes_task_identity_without_persisting_credentials(monkeypatch):
+    before = runtime.fingerprint("deep_literature")
+    monkeypatch.setenv("LITERATURE_EVIDENCE_K", "8")
+    after = runtime.fingerprint("deep_literature")
+    assert before != after and after["paperqa_settings"]["EVIDENCE_K"] == "8"
+    monkeypatch.setenv("LITERATURE_MODEL_API_KEY", "credential-not-configuration")
+    assert runtime.fingerprint("deep_literature") == after
+    assert "credential-not-configuration" not in json.dumps(after)

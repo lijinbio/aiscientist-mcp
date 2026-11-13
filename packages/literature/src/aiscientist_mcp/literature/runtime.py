@@ -99,6 +99,23 @@ def fingerprint(tool):
         "index": str(cfg.index_dir),
         "embedding": os.environ.get("LITERATURE_EMBEDDING", "st-NeuML/pubmedbert-base-embeddings"),
     }
+    if tool == "deep_literature":
+        result["paperqa_settings"] = {
+            name: os.environ.get("LITERATURE_" + name, "")
+            for name in (
+                "EVIDENCE_K",
+                "MAX_SOURCES",
+                "SEARCH_COUNT",
+                "CONCURRENCY",
+                "ANSWER_LENGTH",
+                "REASONING_EFFORT",
+                "SUMMARY_REASONING_EFFORT",
+                "TEMPERATURE",
+                "LLM_TIMEOUT",
+                "AGENT_TIMEOUT",
+                "AGENT_TYPE",
+            )
+        }
     if tool in {"deep_literature", "extract_haploinsufficient_genes"}:
         model = ModelSettings.from_env()
         result["model"] = {
@@ -148,7 +165,9 @@ def submit(tool, args, analysis_id="default", rerun=False):
         request = {"tool": tool, "args": args, "version": __version__, "inputs": fingerprint(tool)}
         if tool != "literature_search":
             binding = ws / "corpus_binding.json"
-            identity = {key: value for key, value in request["inputs"].items() if key != "model"}
+            identity = {
+                key: value for key, value in request["inputs"].items() if key not in {"model", "paperqa_settings"}
+            }
             if binding.exists() and json.loads(binding.read_text()) != identity:
                 raise ValueError("analysis is bound to another corpus version; use a new analysis_id")
             write_json(binding, identity)

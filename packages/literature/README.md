@@ -163,3 +163,37 @@ To curate another property, provide the complete typed `spec` object:
 ```
 
 The spec definition/rules become the reading prompt; its questions and exact terms drive retrieval. Unknown spec fields are rejected. Without a spec, the original haploinsufficiency rules apply. Model endpoint/name/key are explicit server settings, never tool arguments. Shared corpus paths remain read-only; missing text extraction writes only to this analysis. Reuse an analysis after a recoverable interruption to resume stored judgments; use a new analysis ID when changing corpus/model identity.
+
+## Real HPC validation (2026-11-12)
+
+The source-staged standalone server was exercised through actual MCP stdio in the
+lab's existing PaperQA SIF (Python 3.12.13), using read-only RetiGene documents,
+local PubMedBERT weights and an isolated, authenticated Qwen3.8-27B-INT4 vLLM
+0.28.0 service on one A30. This was separate from the user's gateway/API-key
+session and did not forward that session's credentials.
+
+- Europe PMC citation search and local corpus retrieval passed against real data.
+- `deep_literature` returned two supporting contexts and a 1,182-character answer
+  in 265.74 seconds. A real read-only Tantivy lock failure first exposed the need
+  for an atomic private copy of the prebuilt index; the successful rerun kept the
+  source index read-only and reused its saved embeddings.
+- `extract_haploinsufficient_genes` judged four passages from three papers in
+  62.86 seconds. It returned one `RP11` candidate flagged `gene_not_in_quote` and
+  `gene_alias_or_unknown`. This checks model integration and review flags; it is
+  neither a validated HGNC gene list nor whole-corpus scientific curation.
+- Task failure/status paths and bounded native responses were checked. The local
+  Docker image also passed native stdio tool enumeration.
+
+These are source-staged HPC and local-image checks, not a claim that the final
+published SIF has passed. Re-run the exact SIF with
+`containers/literature/validate_hpc.py literature --image ... --output ...
+--corpus ... --binding ...` inside an authorized CPU allocation. The validator
+records its SHA-256 and calls the image's installed CLI without a source override.
+The binding file contains endpoint/model/key-file path; it does not contain the
+credential value.
+
+The verified model transport is vLLM's OpenAI-compatible chat interface, including
+Qwen thinking controls. Strict public OpenAI endpoints and native Anthropic are
+not established by these tests. Existing guarded gateway BYOK paths remain in
+place. Zero values in the unpriced model's cost/pilot fields are not billing
+measurements or proof that no model calls occurred.

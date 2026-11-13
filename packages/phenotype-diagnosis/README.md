@@ -78,3 +78,40 @@ literature data/model settings and mounts references read-only; it never accepts
 an executable override from a tool call. `diagnose_disease` binds the trusted
 session model to the peer's `LITERATURE_MODEL_*` settings, while HPO mapping uses
 `PHENOTYPE_MODEL_*`. A truncated peer evidence response is rejected for grading.
+
+## Real HPC validation (2026-11-12)
+
+Actual MCP stdio calls used source-staged standalone packages, the lab's existing
+LIRICAL SIF/references and synthetic HPO inputs. Phenotype-only LIRICAL and
+`diagnose_disease(max_literature_queries=0)` each retained all 8,621 candidates;
+native protocol previews measured 6,576 and 14,770 bytes, respectively. These
+checks used the installed lab SIF, not a verified version probe of that SIF.
+
+An isolated authenticated school Qwen3.8-27B-INT4 service also completed HPO text
+mapping in 10.44 seconds, returning two observed terms and one excluded hearing
+loss term for synthetic text. A separate native literature MCP process then
+supplied real corpus evidence to `diagnose_disease`: the completed 327.83-second
+call retained 8,621 LIRICAL candidates plus one graded PRPF31 literature record,
+with a 15,079-byte protocol preview and the full result saved separately. The
+algorithm capped the model's proposed evidence grade to `LIMITED` because only
+one independent source was retrieved. This is the tool's research heuristic,
+not an official ClinGen classification or patient validation; citations were
+DOI-based and had no PMID field. In this existing grading path, the `quote`
+fields retain PaperQA summaries rather than verified verbatim excerpts; use
+`search_corpus` and the original document when checking exact wording.
+
+The first cross-service run with `evidence_k=2` returned no relevant contexts and
+remained ungraded. The successful bounded rerun used evidence_k=8,
+search_count=6 and max_sources=4. Evidence breadth is a deployment choice, not a
+reason to conceal empty retrieval or represent a partial review as exhaustive.
+The local Docker image's own phenotype CLI and bundled literature CLI both
+passed actual stdio tool enumeration.
+
+Final published-SIF acceptance is separate. Run
+`containers/literature/validate_hpc.py phenotype --image ... --output ...
+--corpus ... --binding ... --lirical-data ...` in an authorized CPU allocation.
+The script hashes the supplied SIF, removes inherited source overrides, calls
+its installed native CLIs, checks model mapping and real cross-MCP evidence, and
+rejects an ungraded/error result as an end-to-end pass. Model tests used an
+isolated vLLM service; native Anthropic and strict public OpenAI compatibility
+remain unverified, and the application's guarded BYOK workflow remains available.
