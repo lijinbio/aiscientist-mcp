@@ -80,6 +80,21 @@ def test_stdio_maps_without_model_and_reuses_job(tmp_path):
     assert unsafe["mode"] == "needs_llm" and unsafe["hpo_terms"] == []
 
 
+def test_model_identity_ignores_only_trusted_ephemeral_relay_address(monkeypatch):
+    monkeypatch.setenv("PHENOTYPE_MODEL", "selected")
+    monkeypatch.setenv("PHENOTYPE_MODEL_ENDPOINT", "http://127.0.0.1:1234/v1")
+    monkeypatch.setenv("PHENOTYPE_MODEL_RELAY_PROTOCOL", "aisci-relay-v1")
+    monkeypatch.setenv("PHENOTYPE_MODEL_IDENTITY", "a" * 64)
+    first = Settings.from_env().identity()
+    monkeypatch.setenv("PHENOTYPE_MODEL_ENDPOINT", "http://127.0.0.1:9876/v1")
+    assert Settings.from_env().identity() == first
+    monkeypatch.setenv("PHENOTYPE_MODEL_IDENTITY", "b" * 64)
+    assert Settings.from_env().identity() != first
+    monkeypatch.setenv("PHENOTYPE_MODEL_IDENTITY", "")
+    with pytest.raises(ValueError, match="stable SHA-256"):
+        Settings.from_env().identity()
+
+
 def staged_lirical(tmp_path, monkeypatch, *, fail=False, omit_tsv=False):
     reference = tmp_path / "reference"
     reference.mkdir(exist_ok=True)

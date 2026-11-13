@@ -70,7 +70,7 @@ It adds a separate MCP environment and records the original scientific interpret
 
 ```bash
 docker build --platform linux/amd64 \
-  -f containers/scgpt-annotation/Dockerfile -t mcp-scgpt-annotation:0.0.1 .
+  -f containers/scgpt-annotation/Dockerfile -t mcp-scgpt-annotation:0.0.3 .
 ```
 
 `SCGPT_BASE_IMAGE` can override the recorded official base with an approved OCI reference.
@@ -96,3 +96,10 @@ Version 0.0.2 supplies a writable Numba cache for read-only container launches w
 unmounted home. The worker uses its analysis workspace when no operator cache is configured;
 the image also supplies `/tmp/numba` for direct scientific-interpreter use. Inference code,
 model parameters and the scientific dependency pins are unchanged.
+
+The 480-cell HECA regression preserves original predictions and confidences exactly when
+the old and new images use the same GPU model: verified on both V100 and A30. Across those
+GPU models, labels remained identical but 35 confidence values differed by up to 0.0026;
+the preprocessed matrices were identical. Preserve the GPU model when comparing numerical
+confidence baselines. This observation does not change inference settings or relax the
+old-versus-new comparison tolerance (`1e-6`).

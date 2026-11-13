@@ -167,3 +167,97 @@ def test_killed_inline_caller_does_not_stick_running(config):
     result = tasks.status(config, "analysis", states[0].parent.name)
     assert result["state"] == "FAILED"
     assert tasks.submit(config, "analysis", "count", {})["state"] == "COMPLETED"
+
+
+@pytest.mark.parametrize("state", sorted(tasks.ACTIVE))
+def test_active_state_never_reads_stale_or_partial_result(config, state):
+    directory = tasks.task_dir(tasks.workspace(config, "analysis"), "retry")
+    directory.mkdir(parents=True)
+    tasks.jobs.write_state(directory, {"state": state, "executor": "fixture"})
+    (directory / "result.json").write_text('{"status":"ok","old_science":')
+    result = tasks.status(config, "analysis", "retry")
+    assert result["state"] == state
+    assert not {"status", "old_science"}.intersection(result)
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "FAILED",
+        "CANCELLED",
+        "TIMEOUT",
+        "OUT_OF_MEMORY",
+        "BOOT_FAIL",
+        "DEADLINE",
+        "REVOKED",
+        "SPECIAL_EXIT",
+    ],
+)
+@pytest.mark.parametrize("scientific_status", [None, "ok", "empty"])
+def test_every_noncompleted_terminal_state_is_not_success(config, state, scientific_status):
+    directory = tasks.task_dir(tasks.workspace(config, "analysis"), "terminated")
+    directory.mkdir(parents=True)
+    tasks.jobs.write_state(directory, {"state": state, "executor": "fixture"})
+    payload = {"n_rows": 8, "status": scientific_status} if scientific_status else {"n_rows": 8}
+    tasks.jobs.write_json(directory, "result.json", payload)
+    result = tasks.status(config, "analysis", "terminated")
+    assert result["state"] == state and result["status"] == "error"
+    assert result["n_rows"] == 8  # Complete partial evidence remains available for inspection.
+
+
+def test_missing_executor_state_cannot_inherit_scientific_success(config):
+    directory = tasks.task_dir(tasks.workspace(config, "analysis"), "unknown")
+    directory.mkdir(parents=True)
+    tasks.jobs.write_state(directory, {})
+    tasks.jobs.write_json(directory, "result.json", {"status": "ok", "state": "COMPLETED"})
+    assert tasks.status(config, "analysis", "unknown") == {
+        "state": "UNKNOWN",
+        "analysis_id": "analysis",
+        "task_id": "unknown",
+    }
+
+
+def test_terminal_preserves_explicit_domain_failure_reason(config):
+    directory = tasks.task_dir(tasks.workspace(config, "analysis"), "disabled")
+    directory.mkdir(parents=True)
+    tasks.jobs.write_state(directory, {"state": "CANCELLED", "executor": "fixture"})
+    tasks.jobs.write_json(directory, "result.json", {"status": "not_enabled", "note": "reference unavailable"})
+    result = tasks.status(config, "analysis", "disabled")
+    assert result["status"] == "not_enabled" and result["note"] == "reference unavailable"
+
+
+def test_slurm_retry_preserves_history_but_hides_previous_payload(config, monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("AISCI_EXECUTOR", "slurm")
+    monkeypatch.setenv("AISCI_SLURM_FALLBACK", "--partition=standard")
+    directory = tasks.task_dir(tasks.workspace(config, "analysis"), "preempted")
+    directory.mkdir(parents=True)
+    tasks.jobs.write_state(
+        directory,
+        {
+            "state": "RUNNING",
+            "executor": "slurm",
+            "job_id": "101",
+            "cmd": [sys.executable, "-c", "pass"],
+            "jobs": [{"job_id": "101", "slurm_opts": "--partition=free"}],
+        },
+    )
+    tasks.jobs.write_json(directory, "result.json", {"status": "ok", "n_rows": 99})
+    monkeypatch.setattr(tasks.jobs, "_slurm_state", lambda jid: "PREEMPTED" if jid == "101" else "PENDING")
+    submitted = []
+
+    def sbatch(command, **kwargs):
+        assert command[0] == "sbatch"
+        submitted.append(command)
+        return SimpleNamespace(stdout="102\n")
+
+    monkeypatch.setattr(tasks.jobs.subprocess, "run", sbatch)
+    for _ in range(2):
+        result = tasks.status(config, "analysis", "preempted")
+        assert result["state"] == "PENDING" and result["job_id"] == "102"
+        assert not {"status", "n_rows"}.intersection(result)
+    assert len(submitted) == 1
+    saved = tasks.jobs.read_state(directory)
+    assert [row["job_id"] for row in saved["jobs"]] == ["101", "102"]
+    assert saved["slurm_opts"] == "--partition=standard"

@@ -178,10 +178,15 @@ def submit(cfg, cmd, jobdir, name, slurm_opts=None, extra=None):
         state.pop("allocation_job_id", None)
         if allocation := os.environ.get("SLURM_JOB_ID"):
             state["allocation_job_id"] = allocation
-        write_state(jobdir, state | {"state": "RUNNING"})
-        with managed_file(jobdir, "job.log").open("a") as log:
-            rc = subprocess.run(full, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
-                                check=False).returncode  # fmt: skip
+        # Publish only after the child exists. A caller that cancels the
+        # process group on observing RUNNING must not race with posix_spawn
+        # and leave a newly spawned worker holding the workspace lock.
+        with (
+            managed_file(jobdir, "job.log").open("a") as log,
+            subprocess.Popen(full, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT) as proc,
+        ):
+            write_state(jobdir, state | {"state": "RUNNING"})
+            rc = proc.wait()
         done = managed_file(jobdir, "done.json")
         state |= json.loads(done.read_text()) if done.exists() else {"state": "FAILED", "error": f"exit {rc}"}
     else:

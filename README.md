@@ -40,7 +40,7 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
-| [`phenotype-diagnosis`](packages/phenotype-diagnosis) | 0.0.2 | `map_phenotype_to_hpo`, `run_lirical`, `diagnose_disease`, `phenotype_job_status` | `ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.2` |
+| [`phenotype-diagnosis`](packages/phenotype-diagnosis) | 0.0.3 | `map_phenotype_to_hpo`, `run_lirical`, `diagnose_disease`, `phenotype_job_status` | `ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.3` |
 
 ### knowledge-graph
 
@@ -52,7 +52,7 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
-| [`literature`](packages/literature) | 0.0.2 | `literature_search`, `search_corpus`, `deep_literature`, `extract_haploinsufficient_genes`, `literature_job_status` | `ghcr.io/lijinbio/mcp-literature:0.0.2` |
+| [`literature`](packages/literature) | 0.0.3 | `literature_search`, `search_corpus`, `deep_literature`, `extract_haploinsufficient_genes`, `literature_job_status` | `ghcr.io/lijinbio/mcp-literature:0.0.3` |
 
 ### single-cell
 
@@ -60,20 +60,20 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 | --- | --- | --- | --- |
 | [`atlas-expression-exploration`](packages/atlas-expression-exploration) | 0.0.4 | `resolve_genes`, `submit_query`, `query_status`, `get_summary`, `plot_dotplot`, `plot_violin`, `plot_featureplot`, `write_report`, `list_queries` | `ghcr.io/lijinbio/mcp-atlas-expression-exploration:0.0.4` |
 | [`cellqc`](packages/cellqc) | 0.0.3 | `run_cellqc`, `cellqc_job_status` | `ghcr.io/lijinbio/mcp-cellqc:0.0.3` |
-| [`scgpt-annotation`](packages/scgpt-annotation) | 0.0.2 | `scgpt_annotate`, `scgpt_job_status` | `ghcr.io/lijinbio/mcp-scgpt-annotation:0.0.2` |
+| [`scgpt-annotation`](packages/scgpt-annotation) | 0.0.3 | `scgpt_annotate`, `scgpt_job_status` | `ghcr.io/lijinbio/mcp-scgpt-annotation:0.0.3` |
 | [`scrna-analysis`](packages/scrna-analysis) | 0.0.2 | `run_scanpy_qc`, `run_clustering`, `run_de`, `run_enrichment`, `run_depth_matched_de`, `run_gsea_prerank`, `run_doublet_detection`, `run_integration`, `run_pseudobulk_de`, `run_composition`, `run_marker_annotation`, `scrna_job_status` | `ghcr.io/lijinbio/mcp-scrna-analysis:0.0.2` |
 
 ### utilities
 
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
-| [`data-utilities`](packages/data-utilities) | 0.0.1 | `inspect_dataset`, `make_schematic`, `data_utilities_job_status` | `ghcr.io/lijinbio/mcp-data-utilities:0.0.1` |
+| [`data-utilities`](packages/data-utilities) | 0.0.2 | `inspect_dataset`, `make_schematic`, `data_utilities_job_status` | `ghcr.io/lijinbio/mcp-data-utilities:0.0.2` |
 
 ### variants
 
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
-| [`variant-annotation`](packages/variant-annotation) | 0.0.1 | `annotate_variants`, `variant_job_status` | `ghcr.io/lijinbio/mcp-variant-annotation:0.0.1` |
+| [`variant-annotation`](packages/variant-annotation) | 0.0.2 | `annotate_variants`, `variant_job_status` | `ghcr.io/lijinbio/mcp-variant-annotation:0.0.2` |
 
 <!-- END SERVERS -->
 

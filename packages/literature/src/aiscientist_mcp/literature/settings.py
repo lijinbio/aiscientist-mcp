@@ -1,10 +1,20 @@
 """Server-owned corpus paths and an explicitly configured model endpoint."""
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from aiscientist_mcp.common.model import ModelSettings as ModelSettings
+
+
+def model_location(model):
+    if os.environ.get("LITERATURE_MODEL_RELAY_PROTOCOL") != "aisci-relay-v1":
+        return {"endpoint": model.endpoint}
+    identity = os.environ.get("LITERATURE_MODEL_IDENTITY", "")
+    if not re.fullmatch(r"[a-f0-9]{64}", identity):
+        raise ValueError("the configured model relay requires a stable SHA-256 identity")
+    return {"relay_identity": identity}
 
 
 def _roots() -> tuple[Path, ...]:

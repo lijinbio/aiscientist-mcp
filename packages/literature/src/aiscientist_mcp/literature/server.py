@@ -115,7 +115,8 @@ def extract_haploinsufficient_genes(
     two retrieval rounds, exact-quote verification, HGNC normalization, review flags, pilot
     and resumable judgments. Writes genes.csv, hits.csv and requests.csv under this analysis.
     A spec can define another curation target. Model credentials are server settings only.
-    A positive max_cost_usd is refused because this server cannot price an arbitrary endpoint."""
+    A positive max_cost_usd requires an operator-configured priced model relay.
+    The pilot estimates total cost; subsequent calls stop at the spending cap."""
     return _call("extract_haploinsufficient_genes", locals())
 
 

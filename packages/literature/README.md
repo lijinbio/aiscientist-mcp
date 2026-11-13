@@ -91,9 +91,7 @@ Both answer and curation models use the configured endpoint exclusively; without
 settings they report `not_enabled`. Credentials are never tool arguments or persisted job requests.
 Model HTTP redirects are refused for the extraction client; keys are redacted from worker output.
 
-The original app priced model calls through its gateway relay. This standalone server has no
-provider-specific price catalog, so a positive `max_cost_usd` is explicitly refused rather than
-pretending to enforce it. Use an endpoint with its own spending controls for priced models. The
+A gateway relay can declare `LITERATURE_MODEL_USAGE_PROTOCOL=aisci-relay-v1` through trusted server configuration. The relay returns measured token usage and a known numeric per-call USD estimate in `aiscientist_usage`; the extraction worker accumulates it in `api_usage` and the original pilot projects the full scan cost. Positive `max_cost_usd` is accepted only for this declared priced protocol. The gateway also applies the smaller of that requested cap and its configured ceiling. Worker and gateway serialize priced calls and stop further calls once the cap is reached; an already in-flight request can cross it. Missing/unknown prices stop the scan and are reported as null, never free. Arbitrary unpriced endpoints still reject a positive cap. The
 pilot still detects failed or unparsable model replies before the full pass.
 
 ## Validation and rollout
@@ -145,7 +143,7 @@ Curate genes reported as haploinsufficient in retinal disease from the configure
 
 The tool writes `genes.csv`, `hits.csv`, and `requests.csv` plus durable requests/judgments in its analysis workspace. Tables carry PMIDs, verbatim quotes, source pages, evidence classes, classification/verification flags and gene-normalization diagnostics. Inspect review flags and source quotes before using a candidate list. A bounded smoke run demonstrates execution, not exhaustive recall or scientific completeness.
 
-The schema exposes retrieval settings (`n_requests`, `k_per_request`, `keyword_round`, `term_round`, `max_term_passages`, `k_per_gene`), output controls (`max_quotes_per_gene`), parallelism (`concurrency`), smoke-test cap (`max_passages`, zero means all), pilot settings, unread checks, optional `pmids` and optional `spec`. A pilot detects failed or unparsable model replies before the full pass. This standalone service cannot price arbitrary endpoints: a positive `max_cost_usd` is refused; configure spending controls at the model service.
+The schema exposes retrieval settings (`n_requests`, `k_per_request`, `keyword_round`, `term_round`, `max_term_passages`, `k_per_gene`), output controls (`max_quotes_per_gene`), parallelism (`concurrency`), smoke-test cap (`max_passages`, zero means all), pilot settings, unread checks, optional `pmids` and optional `spec`. A pilot detects failed or unparsable model replies before the full pass. A positive `max_cost_usd` requires an operator-configured priced relay. Its measured usage feeds the pilot cost projection, and both worker and gateway stop subsequent calls at the cap. An in-flight provider request may cross the threshold. Unpriced endpoints cannot accept a positive cap.
 
 To curate another property, provide the complete typed `spec` object:
 

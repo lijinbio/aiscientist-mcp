@@ -770,16 +770,20 @@ class Meter:
     cost_usd: float = 0.0
     input_tokens: int = 0
     output_tokens: int = 0
+    cost_known: bool = True
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def add(self, usage: dict[str, Any] | None, cost_usd: Any) -> None:
-        u = usage or {}
+        u = usage if isinstance(usage, dict) else {}
         with self._lock:
             self.calls += 1
             self.input_tokens += int(u.get("prompt_tokens") or 0)
             self.output_tokens += int(u.get("completion_tokens") or 0)
-            with contextlib.suppress(TypeError, ValueError):
-                self.cost_usd += float(cost_usd or 0)
+            if cost_usd is None:
+                self.cost_known = False
+            else:
+                with contextlib.suppress(TypeError, ValueError):
+                    self.cost_usd += float(cost_usd)
 
     def public(self) -> dict[str, Any]:
         with self._lock:
@@ -787,8 +791,13 @@ class Meter:
                 "calls": self.calls,
                 "input_tokens": self.input_tokens,
                 "output_tokens": self.output_tokens,
-                "cost_usd": round(self.cost_usd, 6),
+                "cost_usd": round(self.cost_usd, 6) if self.cost_known else None,
             }
+
+    def mark_unknown_cost(self):
+        """A submitted request lost its accounting; do not infer a free call."""
+        with self._lock:
+            self.cost_known = False
 
 
 # After this many passages IN A ROW fail to reach the model, the endpoint is taken as gone (the
@@ -1419,8 +1428,17 @@ def run_extract(
                 "step": "literature",
                 "note": "configure LITERATURE_MODEL_ENDPOINT and LITERATURE_MODEL",
             }
-        judge_fn = cfg.judge(max_tokens=2000)
-        write_fn = cfg.judge(max_tokens=2500)
+        from .priced_model import PricedModel, enabled
+
+        if enabled():
+            priced = PricedModel(cfg, meter, max_cost_usd=_p("max_cost_usd", args))
+            judge_fn = priced.judge(max_tokens=2000)
+            write_fn = priced.judge(max_tokens=2500)
+        else:
+            if float(_p("max_cost_usd", args) or 0) > 0:
+                return {"status": "error", "error": "max_cost_usd requires a known-price model relay"}
+            judge_fn = cfg.judge(max_tokens=2000)
+            write_fn = cfg.judge(max_tokens=2500)
         log("using the configured literature model")
 
     work = ws / "work" / out_subdir
@@ -1626,7 +1644,7 @@ def run_extract(
             "calls": calls,
             "cost_usd": round(spent, 6),
         }
-        if calls and spent > 0:
+        if calls and meter.cost_known:
             # Round two reads about as many passages again (857 then 766 in the 2026-10-20 scan).
             pilot_info["estimated_total_usd"] = round(spent / calls * 2 * len(passages), 4)
         log(

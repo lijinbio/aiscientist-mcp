@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-data-utilities"
-version = "0.0.1"
+version = "0.0.2"
 description = "Bounded dataset inspection and deterministic Graphviz schematics"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["aiscientist-mcp-common>=0.0.3", "h5py>=3.11", "pydot>=3"]
+dependencies = ["aiscientist-mcp-common>=0.0.4", "h5py>=3.11", "pydot>=3"]
 
 [project.optional-dependencies]
 test = ["pytest"]

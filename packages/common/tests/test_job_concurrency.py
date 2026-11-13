@@ -1,6 +1,7 @@
 """Concurrent polling cannot read partial metadata or submit duplicate retries."""
 
 import json
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -8,6 +9,31 @@ from types import SimpleNamespace
 
 import pytest
 from aiscientist_mcp.common import jobs
+
+
+def test_inline_running_is_not_published_during_process_creation(tmp_path, monkeypatch):
+    cfg = jobs.JobSettings("inline", "", "", "")
+    started, finish = threading.Event(), threading.Event()
+    popen = jobs.subprocess.Popen
+    monkeypatch.setattr(jobs, "_proc_start", lambda pid: "fixture-start")
+
+    def delayed_spawn(*args, **kwargs):
+        started.set()
+        assert finish.wait(5)
+        return popen(*args, **kwargs)
+
+    monkeypatch.setattr(jobs.subprocess, "Popen", delayed_spawn)
+    code = "from aiscientist_mcp.common import jobs; import sys; jobs.record_done(sys.argv[1], lambda: None)"
+    with ThreadPoolExecutor() as pool:
+        future = pool.submit(jobs.submit, cfg, [sys.executable, "-c", code, str(tmp_path)], tmp_path, "test")
+        try:
+            assert started.wait(5)
+            # Cancelling the group at this point can miss a not-yet-created child.
+            # RUNNING must mean the worker has actually been created.
+            assert not (tmp_path / "state.json").exists()
+        finally:
+            finish.set()
+        assert future.result()["state"] == "COMPLETED"
 
 
 def test_json_publication_is_atomic(tmp_path, monkeypatch):

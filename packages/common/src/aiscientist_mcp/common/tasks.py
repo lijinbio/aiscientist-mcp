@@ -103,15 +103,18 @@ def status(cfg: TaskConfig, analysis_id: str, task_id: str) -> dict:
     if not state_file.is_file():
         raise ValueError("unknown task_id")
     state = jobs.status(cfg.settings(), directory)
+    current = state.get("state") or "UNKNOWN"
     output = {}
     result_file = jobs.managed_file(directory, "result.json")
-    if result_file.is_file():
+    # A preempted allocation can leave its payload beside the new active state.
+    # Scientific output belongs to a terminal attempt, never to its pending retry.
+    if result_file.is_file() and current not in ACTIVE:
         output = json.loads(result_file.read_text())
-    output |= {key: state[key] for key in ("state", "job_id", "elapsed_s", "note", "error") if key in state}
-    output |= {"analysis_id": analysis_id, "task_id": task_id}
-    if state.get("state") == "COMPLETED" and not result_file.is_file():
+    output |= {key: state[key] for key in ("job_id", "elapsed_s", "note", "error") if key in state}
+    output |= {"state": current, "analysis_id": analysis_id, "task_id": task_id}
+    if current == "COMPLETED" and not result_file.is_file():
         output.update(state="FAILED", status="error", error="completed task result is missing; submit a new task")
-    if state.get("state") == "FAILED" and output.get("status") in {None, "ok", "empty"}:
+    if current not in ACTIVE | {"COMPLETED"} and output.get("status") in {None, "ok", "empty"}:
         output["status"] = "error"
     return output
 

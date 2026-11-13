@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-scgpt-annotation"
-version = "0.0.2"
+version = "0.0.3"
 description = "GPU reference-based single-cell annotation using the validated scGPT harness"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["aiscientist-mcp-common>=0.0.3"]
+dependencies = ["aiscientist-mcp-common>=0.0.4"]
 
 [project.optional-dependencies]
 test = ["pytest", "anndata>=0.10", "pandas>=2"]

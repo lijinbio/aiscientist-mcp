@@ -184,6 +184,36 @@ def test_budget_cap_is_not_silently_ignored():
         runtime.submit("extract_haploinsufficient_genes", {"max_cost_usd": 1.0})
 
 
+def test_same_relay_identity_reuses_analysis_across_ephemeral_ports(monkeypatch):
+    monkeypatch.setenv("LITERATURE_MODEL", "bound-model")
+    monkeypatch.setenv("LITERATURE_MODEL_ENDPOINT", "http://127.0.0.1:1234/v1")
+    monkeypatch.setenv("LITERATURE_MODEL_RELAY_PROTOCOL", "aisci-relay-v1")
+    monkeypatch.setenv("LITERATURE_MODEL_IDENTITY", "a" * 64)
+    calls = []
+
+    def finish(_settings, _argv, task, _name):
+        calls.append(task)
+        runtime.write_json(task / "result.json", {"status": "ok", "answer": "synthetic"})
+        runtime.write_json(task / "done.json", {"state": "COMPLETED"})
+
+    monkeypatch.setattr(runtime.jobs, "submit", finish)
+    first = runtime.submit("deep_literature", {"question": "synthetic"}, "relay-identity")
+    monkeypatch.setenv("LITERATURE_MODEL_ENDPOINT", "http://127.0.0.1:9876/v1")
+    second = runtime.submit("deep_literature", {"question": "synthetic"}, "relay-identity")
+    assert second["task_id"] == first["task_id"] and len(calls) == 1
+    assert "endpoint" not in runtime.fingerprint("deep_literature")["model"]
+    monkeypatch.setenv("LITERATURE_MODEL_IDENTITY", "b" * 64)
+    with pytest.raises(ValueError, match="another model"):
+        runtime.submit("deep_literature", {"question": "synthetic"}, "relay-identity")
+    assert len(calls) == 1
+
+
+def test_declared_relay_requires_valid_identity(monkeypatch):
+    monkeypatch.setenv("LITERATURE_MODEL_RELAY_PROTOCOL", "aisci-relay-v1")
+    with pytest.raises(ValueError, match="stable SHA-256"):
+        runtime.fingerprint("deep_literature")
+
+
 def test_paperqa_pins_endpoint_and_keeps_its_answer_index_local(tmp_path, monkeypatch):
     from aiscientist_mcp.literature import deep
 

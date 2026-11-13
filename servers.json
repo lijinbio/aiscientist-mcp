@@ -72,10 +72,10 @@
       "server": "data-utilities",
       "category": "utilities",
       "package": "aiscientist-mcp-data-utilities",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "description": "Bounded dataset inspection and deterministic Graphviz schematics",
       "entry_point": "data-utilities-mcp",
-      "image": "ghcr.io/lijinbio/mcp-data-utilities:0.0.1",
+      "image": "ghcr.io/lijinbio/mcp-data-utilities:0.0.2",
       "path": "packages/data-utilities",
       "tools": [
         {
@@ -96,10 +96,10 @@
       "server": "literature",
       "category": "literature",
       "package": "aiscientist-mcp-literature",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "description": "MCP server: biomedical literature retrieval and grounded corpus analysis",
       "entry_point": "literature-mcp",
-      "image": "ghcr.io/lijinbio/mcp-literature:0.0.2",
+      "image": "ghcr.io/lijinbio/mcp-literature:0.0.3",
       "path": "packages/literature",
       "tools": [
         {
@@ -128,10 +128,10 @@
       "server": "phenotype-diagnosis",
       "category": "annotation",
       "package": "aiscientist-mcp-phenotype-diagnosis",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "description": "Grounded phenotype mapping and evidence-backed differential diagnosis",
       "entry_point": "phenotype-diagnosis-mcp",
-      "image": "ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.2",
+      "image": "ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.3",
       "path": "packages/phenotype-diagnosis",
       "tools": [
         {
@@ -156,10 +156,10 @@
       "server": "scgpt-annotation",
       "category": "single-cell",
       "package": "aiscientist-mcp-scgpt-annotation",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "description": "GPU reference-based single-cell annotation using the validated scGPT harness",
       "entry_point": "scgpt-annotation-mcp",
-      "image": "ghcr.io/lijinbio/mcp-scgpt-annotation:0.0.2",
+      "image": "ghcr.io/lijinbio/mcp-scgpt-annotation:0.0.3",
       "path": "packages/scgpt-annotation",
       "tools": [
         {
@@ -236,10 +236,10 @@
       "server": "variant-annotation",
       "category": "variants",
       "package": "aiscientist-mcp-variant-annotation",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "description": "Offline VEP and ClinVar variant annotation with reproducible analysis jobs",
       "entry_point": "variant-annotation-mcp",
-      "image": "ghcr.io/lijinbio/mcp-variant-annotation:0.0.1",
+      "image": "ghcr.io/lijinbio/mcp-variant-annotation:0.0.2",
       "path": "packages/variant-annotation",
       "tools": [
         {

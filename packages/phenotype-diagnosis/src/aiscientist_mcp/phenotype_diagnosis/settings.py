@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,15 @@ def model_max_tokens():
     if value <= 0:
         raise ValueError("PHENOTYPE_MODEL_MAX_TOKENS must be positive")
     return value
+
+
+def model_location(model):
+    if os.environ.get(model.prefix + "_MODEL_RELAY_PROTOCOL") != "aisci-relay-v1":
+        return {"endpoint": model.endpoint}
+    identity = os.environ.get(model.prefix + "_MODEL_IDENTITY", "")
+    if not re.fullmatch(r"[a-f0-9]{64}", identity):
+        raise ValueError("the configured model relay requires a stable SHA-256 identity")
+    return {"relay_identity": identity}
 
 
 @dataclass(frozen=True)
@@ -70,7 +80,7 @@ class Settings:
             identity[name] = hashlib.sha256(str(identity[name]).encode()).hexdigest()
         model = ModelSettings.from_env("PHENOTYPE")
         identity["model"] = {
-            "endpoint": model.endpoint,
+            **model_location(model),
             "model": model.model,
             "timeout": model.timeout,
             "max_tokens": model_max_tokens(),
@@ -78,7 +88,7 @@ class Settings:
         if self.literature_command:
             literature_model = ModelSettings.from_env("LITERATURE")
             identity["literature_model"] = {
-                "endpoint": literature_model.endpoint,
+                **model_location(literature_model),
                 "model": literature_model.model,
                 "timeout": literature_model.timeout,
                 "max_tokens": os.environ.get("LITERATURE_MODEL_MAX_TOKENS", ""),

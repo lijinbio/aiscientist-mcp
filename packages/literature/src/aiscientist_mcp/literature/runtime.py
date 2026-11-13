@@ -119,10 +119,13 @@ def fingerprint(tool):
         }
     if tool in {"deep_literature", "extract_haploinsufficient_genes"}:
         model = ModelSettings.from_env()
+        from .settings import model_location
+
         result["model"] = {
-            "endpoint": model.endpoint,
+            **model_location(model),
             "name": model.model,
             "max_tokens": os.environ.get("LITERATURE_MODEL_MAX_TOKENS", ""),
+            "usage_protocol": os.environ.get("LITERATURE_MODEL_USAGE_PROTOCOL", ""),
         }
     return result
 
@@ -157,7 +160,9 @@ def response(ws, analysis_id, task_id):
 def submit(tool, args, analysis_id="default", rerun=False):
     if tool not in TOOLS:
         raise ValueError("unknown literature tool")
-    if tool == "extract_haploinsufficient_genes" and args.get("max_cost_usd", 0) > 0:
+    from .priced_model import enabled as priced_model_enabled
+
+    if tool == "extract_haploinsufficient_genes" and args.get("max_cost_usd", 0) > 0 and not priced_model_enabled():
         raise ValueError(
             "max_cost_usd cannot be enforced for an unpriced endpoint; configure budget enforcement at the model service"
         )
