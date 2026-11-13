@@ -19,6 +19,7 @@ Usage:
 Re-run when pinning a new HPO release; commit the regenerated .tsv.gz. HPO is CC BY 4.0 — the release
 version is recorded in the file header so any mapping can be traced to an exact ontology version.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,8 +33,11 @@ from pathlib import Path
 
 HP_JSON_URL = "https://purl.obolibrary.org/obo/hp.json"
 PHENOTYPIC_ABNORMALITY = "HP:0000118"
-REPLACED_BY_PRED = "http://purl.obolibrary.org/obo/IAO_0100001"   # obo "term replaced by"
-OUT_DEFAULT = Path(__file__).resolve().parents[1] / "packages/phenotype-diagnosis/src/aiscientist_mcp/phenotype_diagnosis/hpo/hpo_lexicon.tsv.gz"
+REPLACED_BY_PRED = "http://purl.obolibrary.org/obo/IAO_0100001"  # obo "term replaced by"
+OUT_DEFAULT = (
+    Path(__file__).resolve().parents[1]
+    / "packages/phenotype-diagnosis/src/aiscientist_mcp/phenotype_diagnosis/hpo/hpo_lexicon.tsv.gz"
+)
 
 # Synonym classes. EXACT synonyms are alternative names for the SAME concept ("Retinitis pigmentosa"
 # for HP:0000510) and are safe to match at full weight. NARROW/BROAD/RELATED are looser (a narrow
@@ -90,14 +94,20 @@ def build_rows(graph: dict) -> tuple[list[tuple[str, ...]], str]:
         meta = node.get("meta", {}) or {}
         obsolete = bool(meta.get("deprecated"))
         if not obsolete and hp_id not in keep:
-            continue                                    # inheritance / modifier / frequency subtrees
+            continue  # inheritance / modifier / frequency subtrees
         label = _clean(node.get("lbl", ""))
         if obsolete:
             # Obsolete rows exist only to explain a stale ID, so we keep just the pointer to the
             # replacement; their names are not offered as mapping candidates (label is left in for
             # the message, prefixed "obsolete ..." by HPO itself).
-            replaced = next((_clean(p.get("val", "")) for p in meta.get("basicPropertyValues", [])
-                             if p.get("pred") == REPLACED_BY_PRED), "")
+            replaced = next(
+                (
+                    _clean(p.get("val", ""))
+                    for p in meta.get("basicPropertyValues", [])
+                    if p.get("pred") == REPLACED_BY_PRED
+                ),
+                "",
+            )
             rows.append((hp_id, label, "", "", "obsolete", replaced))
             continue
         syns = meta.get("synonyms", []) or []
@@ -123,16 +133,23 @@ def write_lexicon(rows: list[tuple[str, ...]], version: str, out: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--hp-json", type=Path, default=None,
-                    help="local hp.json (default: download the current release from the OBO purl)")
+    ap.add_argument(
+        "--hp-json",
+        type=Path,
+        default=None,
+        help="local hp.json (default: download the current release from the OBO purl)",
+    )
     ap.add_argument("--out", type=Path, default=OUT_DEFAULT, help=f"output lexicon (default: {OUT_DEFAULT})")
     args = ap.parse_args(argv)
 
     rows, version = build_rows(load_graph(args.hp_json))
     current = sum(1 for r in rows if r[4] == "current")
     write_lexicon(rows, version, args.out)
-    print(f"wrote {args.out} — {current} current + {len(rows) - current} obsolete terms; "
-          f"hpo_version={version or 'unknown'}", file=sys.stderr)
+    print(
+        f"wrote {args.out} — {current} current + {len(rows) - current} obsolete terms; "
+        f"hpo_version={version or 'unknown'}",
+        file=sys.stderr,
+    )
     return 0
 
 
