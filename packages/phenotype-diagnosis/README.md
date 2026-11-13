@@ -164,10 +164,29 @@ supportive gene-disease evidence or a unique diagnosis from tied probabilities. 
 text was synthetic and references/corpus were real. Provider identity is observed in the
 UI, not independently encoded by the downloaded bundle.
 
-End-to-end acceptance is not yet complete: the old application collector changed two
-scientific disease labels while redacting paths, so exact all-row comparisons failed even
+The old application collector changed two scientific disease labels while redacting paths,
+so the initial exact all-row comparisons failed even
 though numerical values matched. Original native JSON matches all 8,621 old-parser and
-adjudicated rows exactly. The bridge repair passes offline controls, but both original
-tasks still require read-only status recollection and exact comparison. A report-only
-correction must also remove the unsupported PRPF31 claim from the old generated report.
-Those gates remain pending; no new science is required and no historical failure is erased.
+adjudicated rows exactly. Both original tasks have now been recollected through reviewed
+status-only calls (`59543810`, `59543812`). The actual browser ZIP passes the same strict
+comparison for all 8,621 ranked and adjudicated rows, including both corrected labels, the
+reconciled rows and all eight evidence contexts. The original mapping result was preserved.
+The first report-only correction stopped before writing because two identical,
+manifest-verified legacy mapping copies were considered ambiguous; that failure remains
+recorded. After strict checksum/ownership validation of both copies, revision `c96bb649529e`
+passed 14 targeted checks across the complete main and technical browser reports. Both
+reports preserve the unsupported/false PRPF31 result, tier `NONE`, all eight contexts, the
+8,621-row ties and the distinct mapping/ranking HPO fixtures. Browser report and source
+artifact bytes match the gateway. The original plan/state and all three accepted full-result
+hashes are unchanged; no scientific recomputation was performed.
+
+This is a qualified migration/content gate. The report's characterization of the distinct
+HPO fixtures as an input inconsistency is a suggestion for future analysis, not permission
+to alter accepted inputs. The technical TSV locator is imprecise (the files are under the
+`phenotype/` artifact subdirectory); the authoritative task JSON paths and checksums are
+correct. Instructions alone are not evidence: the PRPH2/PRPF8 excerpt interpretation was
+independently checked against original contexts. Automatic numeric matches and render-layout
+claims are not semantic certification. Synthetic inputs, tied rankings and one bounded
+negative query establish neither a unique diagnosis nor a clinical refutation. Historical
+failures remain archived; status recovery and report generation are distinct activities,
+and the latter can use the selected model without repeating model-backed scientific work.

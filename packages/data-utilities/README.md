@@ -69,6 +69,8 @@ EyeServer Graphviz 2.42.4 runtime; canonical and namespaced artifacts were both 
 Released image: [`data-utilities-v0.0.2`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/data-utilities-v0.0.2), OCI `sha256:dd89779ffa9d42597d7dc3d856a2cf71fb8d0552e1e778713092ffdc09aa951c`.
 
 The website diagram is 795 by 59 pixels and correctly reports a page-fit/aspect warning.
-Byte-identical rendering does not imply publication-quality layout. The workflow's report
-correction remains a separate gate; these tests do not certify generated prose or every
-supported input format.
+Byte-identical rendering does not imply publication-quality layout. The same workflow's
+reviewed report-only revision `60213c4b8aa7` passed its targeted main/technical content checks,
+with browser/gateway byte equality and unchanged scientific state. Generic numeric matching
+limitations remain recorded in the scRNA README; this is not certification of every automated
+report check, generated claim, supported input format or layout.

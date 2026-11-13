@@ -123,6 +123,7 @@ whose later diagnostic phase failed; that job is not represented as wholly succe
 
 Released image: [`scgpt-annotation-v0.0.3`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/scgpt-annotation-v0.0.3), OCI `sha256:1133d106342831e9d6cd7fc5961e38eb2043142852219105bac269065213b2d5`.
 
-These checks establish migration equivalence for the recorded model, harness, public subset
-and GPU. They do not establish prediction accuracy, cross-GPU numerical identity or a final
-model-written report audit. Earlier cross-GPU confidence differences remain recorded above.
+The scientific-source and exported-artifact gate passed for the recorded model, harness,
+public subset and A30 GPU. These checks do not establish prediction accuracy, cross-GPU
+numerical identity or a final model-written report audit. Earlier cross-GPU confidence
+differences remain recorded above; no tolerance was widened to make those controls pass.

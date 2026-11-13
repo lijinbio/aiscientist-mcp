@@ -129,6 +129,7 @@ operator-controlled; no source overlay was used.
 
 Released image: [`variant-annotation-v0.0.2`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/variant-annotation-v0.0.2), OCI `sha256:92c875d268b8f89054860cedd13dcbd5b53498e9321868180e9e56a2b56eb388`.
 
-This is a bounded VEP112/ClinVar migration check with plugins disabled, not whole-genome,
-all-assembly, optional-predictor or clinical validation. Scientific-file/download parity
-does not by itself certify every statement in a generated report.
+The scientific-source and exported-artifact gate passed for this bounded VEP112/ClinVar
+migration check with plugins disabled. It does not establish whole-genome, all-assembly,
+optional-predictor, REST-path or clinical validation. Scientific-file/download parity does
+not by itself certify every statement in a generated report.

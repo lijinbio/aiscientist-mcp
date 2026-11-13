@@ -243,13 +243,33 @@ Normal website run `30e3f3c21630` then completed all four reviewed native action
 selected Haiku model observed in the UI. The downloaded results contain three real
 identifier/citation records, three corpus passages, a deep answer supported by the retrieved
 source and the complete evidence array. Bounded extraction retained the actual zero eligible
-gene result; no unsupported gene was promoted. Recorded pilot cost was $0.001635 and total
-cost $0.001761, below the approved $0.10 cap. These are bounded test outcomes, not exhaustive
-corpus curation or proof of a positive gene-extraction case.
+gene result; no unsupported gene was promoted. The sole retained review row is TLCD3B with
+`recessive_lof`, a verified quote and `eligible=false`; the genes table is header-only. Extraction
+read and judged four passages, not the complete corpus. It recorded four pilot calls costing
+$0.001635 within its five-call total of $0.001761, below the approved $0.10 cap. This is not
+the cost of all four tools or gateway report generation. These are bounded test outcomes,
+not exhaustive corpus curation or proof of a positive gene-extraction case.
 
-Scientific/result checks passed, but the old application bridge omitted substantive fields
-from large replies and the generated report needs correction from the verified full results.
-The semantic response repair passes offline controls; actual reviewed report-only correction
-is pending. Provider identity was observed in the UI and is not independently encoded in
+Scientific/result checks passed; the old application bridge had omitted substantive fields
+from large replies and changed two slash-containing passages in exported prose. Those failed
+exports and the first failed report revision remain preserved.
+All four original tasks have now been recollected through reviewed status-only calls in the
+same run. All four full browser JSON results match the original scientific fields exactly,
+including types, list order and restored slash characters; only documented artifact locations
+are mapped. All three CSVs in six published copies are byte-identical to the original files.
+The original 19 native files remained unchanged, and no native task was added. Status recovery
+did not repeat scientific or extraction-model work; gateway reasoning/report calls are a
+separate activity. Report-only revision `0e86afd05ff2` passed 13 targeted checks across the
+complete main and technical browser reports: the substantive primary-source answer, source
+IDs, negative extraction, cost scope and unchanged scientific state/task snapshots. The
+browser report copies match gateway bytes.
+
+This is a qualified content gate. The technical report uses “screened” for a 1,736-paper /
+426,706-sentence corpus whose model judged only four passages; it does not establish
+exhaustive screening. The generic citation footer still fails to recognize status-collected
+evidence, five numeric fields are automatically untraced, and two main-report links refer
+to historical canonical paths. The current task paths and checksums in the grounding
+manifest remain authoritative; automated audit/layout claims are not certified wholesale.
+Provider identity was observed in the UI and is not independently encoded in
 the downloaded bundle. Historical abstentions and flagged `RP11` results above remain
 separate evidence, not successful verified gene lists.

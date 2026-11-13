@@ -205,7 +205,16 @@ The browser-downloaded full CellQC ZIP matched every exported file by SHA-256
 
 Released image: [`cellqc-v0.0.5`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/cellqc-v0.0.5), OCI `sha256:c9e83a362e6bc7a10609d76d53861f5ac59fade870e262d86aba8399d4c724e1`.
 
-The website report still requires a reviewed correction: `ambient_compare` is declared by
-the actual schema, and applied thresholds/counts must come from the full result. Seed 42 is
-recorded in the approved request; it must not be inferred from a default. Report acceptance
-is pending independently of the completed scientific, checkpoint and full-download checks.
+The reviewed report-only revision `f698fa3d06d7` passed its requested scientific and delivery
+content gates in both main and technical reports. The browser copies match the gateway
+bytes, and the original scientific state and plan remained unchanged. The reports distinguish
+the two saved processed datasets and complete 24-file CellQC ZIP from the ordinary report
+bundle and temporary work checkpoints; they identify interface 0.0.5 and engine 0.3.6 as
+separate components. The schema declares `ambient_compare`; seed 42 is request provenance,
+not independently confirmed by the status snapshot. Earlier failed report revisions remain
+recorded. Generic numeric/QC-accounting checks still miss the cross-library doublet sum and
+native status identity; their original warnings are preserved rather than treated as passed.
+The technical retention value 84.8% uses the rounded native fraction, whereas the main
+report's 84.7% uses the exact cell counts: the recorded 0.1 percentage-point double-rounding
+difference does not alter any counts. This content gate does not certify all automated review
+or layout claims, alternate thresholds, or BAM-derived nuclear fraction.

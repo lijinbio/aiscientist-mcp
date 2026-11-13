@@ -159,10 +159,19 @@ Comparison tolerances remain `rtol=1e-6`, `atol=1e-8`; only known artifact-root/
 differences are normalized. AnnData `uns`, figure bytes and generated model prose are not
 claimed to be equal. This bounded 480-cell regression is not a full-atlas benchmark.
 
-The actual data inspection and DOT/PNG checks are documented in data-utilities. The website
-report needs a separate correction: the ORA `top_n_genes=100` cap does not describe the
-GSEA rankings, which contained 1,502 genes for each of the two tested cell types. Scientific
-and file checks passed; corrected report acceptance remains pending.
+The actual data inspection and DOT/PNG checks are documented in data-utilities. Reviewed
+report-only revision `60213c4b8aa7` passed 13 targeted checks across the complete main and
+technical reports; the browser copies match gateway bytes and the scientific plan/state are
+unchanged. Both distinguish the ORA `top_n_genes=100` cap from the full 1,502-gene GSEA
+rankings, the executed periphery-versus-fovea contrast from descriptive age metadata, and
+explicit Harmony from default ComBat and QC/clustering. Earlier failed report revisions
+remain recorded.
+
+This report gate does not validate the generic numeric matcher: it incorrectly associates
+ARR3 detection 2.3% with an unrelated formula, and five values remain automatically untraced.
+The actual marker warning and scientific tables are the relevant evidence. Limitations remain:
+480 selected cells, 20 GSEA permutations, cell-level pseudoreplication, three samples per tissue
+arm and a fixed marker panel. No discovery or clinical/general-population conclusion follows.
 
 ## Scientific tool reference
 
