@@ -150,7 +150,7 @@ provides-extras = ["test"]
 
 [[package]]
 name = "aiscientist-mcp-cellqc"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/cellqc" }
 dependencies = [
     { name = "aiscientist-mcp-common" },
@@ -223,7 +223,7 @@ provides-extras = ["test"]
 
 [[package]]
 name = "aiscientist-mcp-literature"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/literature" }
 dependencies = [
     { name = "aiscientist-mcp-common" },
@@ -257,7 +257,7 @@ provides-extras = ["test", "full"]
 
 [[package]]
 name = "aiscientist-mcp-phenotype-diagnosis"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/phenotype-diagnosis" }
 dependencies = [
     { name = "aiscientist-mcp-common" },

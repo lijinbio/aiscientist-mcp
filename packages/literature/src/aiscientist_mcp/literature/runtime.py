@@ -22,13 +22,14 @@ TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "BOO
 
 
 def write_json(path, value):
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(value, allow_nan=False, indent=2))
-    tmp.replace(path)
+    jobs.write_json(path.parent, path.name, value)
 
 
 def workspace(analysis_id):
-    root = Path(os.environ.get("AISCI_DATA_DIR", "./aiscientist-mcp-data")).expanduser().resolve() / SERVER_NAME
+    configured = Path(os.environ.get("AISCI_DATA_DIR", "./aiscientist-mcp-data")).expanduser()
+    if configured.is_symlink():
+        raise ValueError("literature data root cannot be a symlink")
+    root = configured.resolve() / SERVER_NAME
     if root.is_symlink():
         raise ValueError("literature data root cannot be a symlink")
     root.mkdir(parents=True, exist_ok=True)
@@ -51,7 +52,7 @@ def workspace(analysis_id):
 
 @contextlib.contextmanager
 def lock(path):
-    with path.open("a") as handle:
+    with jobs.managed_file(path.parent, path.name).open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -136,7 +137,7 @@ def task_dir(ws, task_id):
 def response(ws, analysis_id, task_id):
     task = task_dir(ws, task_id)
     state = jobs.status(jobs.JobSettings.from_env(), task)
-    result_file = task / "result.json"
+    result_file = jobs.managed_file(task, "result.json")
     result = json.loads(result_file.read_text()) if result_file.is_file() else {}
     if state.get("state") == "COMPLETED" and (not result or result.get("status") != "ok"):
         state = state | {"state": "FAILED", "error": "job has no successful result"}
@@ -164,7 +165,7 @@ def submit(tool, args, analysis_id="default", rerun=False):
     with lock(ws / ".submit.lock"):
         request = {"tool": tool, "args": args, "version": __version__, "inputs": fingerprint(tool)}
         if tool != "literature_search":
-            binding = ws / "corpus_binding.json"
+            binding = jobs.managed_file(ws, "corpus_binding.json")
             identity = {
                 key: value for key, value in request["inputs"].items() if key not in {"model", "paperqa_settings"}
             }
@@ -172,12 +173,12 @@ def submit(tool, args, analysis_id="default", rerun=False):
                 raise ValueError("analysis is bound to another corpus version; use a new analysis_id")
             write_json(binding, identity)
         if "model" in request["inputs"]:
-            binding = ws / "model_binding.json"
+            binding = jobs.managed_file(ws, "model_binding.json")
             if binding.exists() and json.loads(binding.read_text()) != request["inputs"]["model"]:
                 raise ValueError("analysis is bound to another model; use a new analysis_id")
             write_json(binding, request["inputs"]["model"])
         signature = hashlib.sha256(json.dumps(request, sort_keys=True, allow_nan=False).encode()).hexdigest()[:32]
-        active = ws / "active.json"
+        active = jobs.managed_file(ws, "active.json")
         if active.exists():
             previous = json.loads(active.read_text())
             prior_id = previous["task_id"]
@@ -195,10 +196,12 @@ def submit(tool, args, analysis_id="default", rerun=False):
         write_json(task / "request.json", request | {"analysis_id": analysis_id})
         write_json(active, {"task_id": task_id, "signature": signature})
         try:
+            executor = jobs.JobSettings.from_env()
+            python = os.environ.get("AISCI_JOB_PYTHON") or ("python" if executor.prefix else sys.executable)
             jobs.submit(
-                jobs.JobSettings.from_env(),
+                executor,
                 [
-                    sys.executable,
+                    python,
                     "-m",
                     "aiscientist_mcp.literature.worker",
                     "--analysis-id",
@@ -250,7 +253,7 @@ def dispatch(tool, args, ws):
 def execute(analysis_id, task_id):
     ws = workspace(analysis_id)
     task = task_dir(ws, task_id)
-    request = json.loads((task / "request.json").read_text())
+    request = json.loads(jobs.managed_file(task, "request.json").read_text())
     with lock(ws / ".analysis.lock"):
         if request["inputs"] != fingerprint(request["tool"]):
             raise ValueError("corpus or model configuration changed after submission; submit again")

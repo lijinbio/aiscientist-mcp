@@ -14,13 +14,15 @@ from aiscientist_mcp.common.paths import child_dir, safe_id
 from . import __version__
 from .settings import defaults_source
 
-ACTIVE = {"PENDING", "RUNNING", "CONFIGURING", "COMPLETING", "SUSPENDED", "UNKNOWN"}
+ACTIVE = {"PENDING", "RUNNING", "CONFIGURING", "COMPLETING", "SUSPENDED", "UNKNOWN", "REQUEUED"}
 
 
 def workspace(analysis_id: str) -> Path:
     if analysis_id == ".":
         raise ValueError("invalid analysis_id")
     root = Path(os.environ.get("AISCI_DATA_DIR", "./data")).resolve() / "cellqc"
+    if root.is_symlink():
+        raise ValueError("server workspace escapes the server data directory")
     root.mkdir(parents=True, exist_ok=True)
     path = child_dir(root, analysis_id, "analysis_id")
     if path.is_symlink() or not path.resolve().is_relative_to(root):
@@ -74,7 +76,7 @@ def input_identity(folders: list[dict]) -> list[dict]:
 
 @contextlib.contextmanager
 def lock(path: Path):
-    with path.open("a") as stream:
+    with jobs.managed_file(path.parent, path.name).open("a") as stream:
         try:
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
@@ -91,10 +93,15 @@ def job_settings():
 
 def task_dir(ws: Path, task_id: str, must_exist=False) -> Path:
     base = ws / "jobs"
-    base.mkdir(exist_ok=True)
-    dest = child_dir(base, task_id, "task_id", must_exist="state.json" if must_exist else None)
-    if dest.is_symlink() or not dest.resolve().is_relative_to(ws):
+    if base.is_symlink():
         raise ValueError("job directory escapes the analysis workspace")
+    base.mkdir(exist_ok=True)
+    dest = child_dir(base, task_id, "task_id")
+    if task_id == "." or dest.is_symlink() or not dest.resolve().is_relative_to(ws):
+        raise ValueError("job directory escapes the analysis workspace")
+    state = jobs.managed_file(dest, "state.json")
+    if must_exist and not state.is_file():
+        raise ValueError("unknown task_id")
     return dest
 
 
@@ -106,9 +113,12 @@ def result(ws: Path, task_id: str) -> dict:
         "task_id": task_id,
         **{key: state[key] for key in ("state", "job_id", "error", "note", "elapsed_s") if key in state},
     }
-    if (directory / "result.json").exists():
-        payload = json.loads((directory / "result.json").read_text()) | payload
-    if state.get("state") == "FAILED":
+    result_file = jobs.managed_file(directory, "result.json")
+    if result_file.is_file():
+        payload = json.loads(result_file.read_text()) | payload
+    if state.get("state") == "COMPLETED" and not result_file.is_file():
+        payload.update(state="FAILED", status="error", error="completed task result is missing; submit a new task")
+    elif state.get("state") not in ACTIVE | {"COMPLETED"}:
         payload["status"] = "error"
     return payload
 
@@ -121,6 +131,7 @@ def submit(analysis_id: str, dataset: str, dataset_paths: list[str] | None, args
     if any(ws.is_relative_to(Path(folder["path"])) or Path(folder["path"]).is_relative_to(ws) for folder in folders):
         raise ValueError("input and CellQC analysis workspace must be separate directories")
     request = {
+        "analysis_id": analysis_id,
         "arguments": args,
         "folders": folders,
         "inputs": identity,
@@ -130,7 +141,7 @@ def submit(analysis_id: str, dataset: str, dataset_paths: list[str] | None, args
     signature = hashlib.sha256(json.dumps(request, sort_keys=True, allow_nan=False).encode()).hexdigest()[:24]
     task_id = "qc-" + signature
     with lock(ws / ".submit.lock"):
-        active = ws / "active.json"
+        active = jobs.managed_file(ws, "active.json")
         if active.exists():
             active_request = json.loads(active.read_text())
             prior = active_request["task_id"]
@@ -142,7 +153,7 @@ def submit(analysis_id: str, dataset: str, dataset_paths: list[str] | None, args
             if previous.get("state") == "COMPLETED" and active_request.get("signature") == signature and not rerun:
                 return previous
         directory = task_dir(ws, task_id)
-        if (directory / "state.json").exists() and not rerun:
+        if jobs.managed_file(directory, "state.json").exists() and not rerun:
             previous = result(ws, task_id)
             if (
                 previous.get("state") == "COMPLETED"
@@ -157,8 +168,8 @@ def submit(analysis_id: str, dataset: str, dataset_paths: list[str] | None, args
             task_id += "-" + uuid4().hex[:8]
             directory = task_dir(ws, task_id)
         directory.mkdir(parents=True, exist_ok=False)
-        (directory / "request.json").write_text(json.dumps(request, indent=2, allow_nan=False))
-        active.write_text(json.dumps({"task_id": task_id, "signature": signature}))
+        jobs.write_json(directory, "request.json", request)
+        jobs.write_json(ws, "active.json", {"task_id": task_id, "signature": signature})
         try:
             jobs.submit(
                 job_settings(),

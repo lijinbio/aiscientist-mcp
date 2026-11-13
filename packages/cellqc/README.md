@@ -64,6 +64,9 @@ then `run_cellqc` waits for the real worker and returns its result. `local` star
 worker and requires the enclosing process/container to remain alive. Slurm/local return
 `analysis_id`, `task_id`, `state`, and a real Slurm `job_id` where applicable. Poll until
 `COMPLETED` or `FAILED`; preemptions use `AISCI_SLURM_FALLBACK` from the common executor.
+Version 0.0.2 publishes request, active-task and result JSON atomically and rejects linked
+runtime metadata. A completed task with a missing result is reported as failed; cancelled or
+failed jobs cannot retain a successful scientific status.
 
 | Setting | Meaning |
 | --- | --- |
@@ -140,6 +143,12 @@ retained cell counts matched for both species. Strict equality of the complete m
 columns differed, with a largest absolute mean difference of approximately 0.01173. DecontX
 was the comparison method in these runs; SoupX supplied the applied counts, which matched.
 The discrepancy remains recorded rather than being hidden by a looser equality threshold.
+Focused controls found identical R-decoded input matrices and gene/barcode order. The saved
+native and baseline R scripts were identical after normalizing workspace paths and timestamps;
+isolated replays of both reproduced the baseline diagnostics. Direct upstream DecontX calls
+instead reproduced the initial native diagnostics on both tested CPU families and with
+explicit single-thread limits. These controls have not yet explained the original execution
+context difference; the complete-metrics parity check remains failed.
 It must be distinguished from exact reproducibility of every diagnostic or validation of a
 newly released image at the target site.
 

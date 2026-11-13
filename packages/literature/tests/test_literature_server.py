@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import shlex
 import subprocess
 import sys
 import threading
@@ -311,3 +312,54 @@ def test_paperqa_breadth_changes_task_identity_without_persisting_credentials(mo
     monkeypatch.setenv("LITERATURE_MODEL_API_KEY", "credential-not-configuration")
     assert runtime.fingerprint("deep_literature") == after
     assert "credential-not-configuration" not in json.dumps(after)
+
+
+@pytest.mark.parametrize("override", [None, "/inside/custom-python"])
+def test_prefixed_worker_uses_image_interpreter(endpoint, monkeypatch, tmp_path, override):
+    url, _ = endpoint
+    monkeypatch.setenv("LITERATURE_SEARCH_URL", url)
+    wrapper = tmp_path / "container-prefix"
+    expected = override or "python"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        + f'[ "$1" = {shlex.quote(expected)} ] || exit 87\n'
+        + "shift\n"
+        + f'exec {shlex.quote(sys.executable)} "$@"\n'
+    )
+    wrapper.chmod(0o700)
+    monkeypatch.setenv("AISCI_JOB_PREFIX", str(wrapper))
+    if override:
+        monkeypatch.setenv("AISCI_JOB_PYTHON", override)
+    else:
+        monkeypatch.delenv("AISCI_JOB_PYTHON", raising=False)
+    result = runtime.submit("literature_search", {"query": "synthetic PRPF31", "limit": 1}, "prefix")
+    assert result["state"] == "COMPLETED" and result["status"] == "ok"
+    task = runtime.task_dir(runtime.workspace("prefix"), result["task_id"])
+    state = json.loads((task / "state.json").read_text())
+    assert state["cmd"][:2] == [str(wrapper), expected]
+
+
+def test_metadata_writer_ignores_stale_shared_temp_and_refuses_symlinks(tmp_path):
+    victim = tmp_path / "unrelated"
+    victim.write_text("unchanged")
+    target = tmp_path / "request.json"
+    target.with_suffix(".tmp").symlink_to(victim)
+    runtime.write_json(target, {"complete": True})
+    assert json.loads(target.read_text()) == {"complete": True}
+    assert victim.read_text() == "unchanged"
+    target.unlink()
+    target.symlink_to(victim)
+    with pytest.raises(ValueError, match="regular file"):
+        runtime.write_json(target, {"changed": True})
+    assert victim.read_text() == "unchanged"
+
+
+def test_configured_data_root_symlink_is_rejected(monkeypatch, tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    alias = tmp_path / "data-link"
+    alias.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setenv("AISCI_DATA_DIR", str(alias))
+    with pytest.raises(ValueError, match="symlink"):
+        runtime.workspace("case")
+    assert not list(outside.iterdir())

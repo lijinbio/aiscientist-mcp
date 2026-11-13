@@ -17,6 +17,16 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 - A README catalog grouped by category, generated with `servers.json` by `index_servers.py`
   (`--check` in CI).
 
+## cellqc, literature and phenotype-diagnosis 0.0.2 - 2026-11-12
+
+### Fixed
+
+- CellQC publishes management JSON atomically, refuses metadata links and reports
+  failed or missing results correctly during concurrent status polling.
+- Literature uses the image's interpreter when a job prefix is configured, and
+  shares the common atomic metadata writer and regular-file checks.
+- The phenotype image includes literature 0.0.2 for its fixed MCP peer command.
+
 ## Analysis servers 0.0.1 - 2026-11-12
 
 ### Added

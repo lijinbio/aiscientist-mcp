@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-literature"
-version = "0.0.1"
+version = "0.0.2"
 description = "MCP server: biomedical literature retrieval and grounded corpus analysis"
 requires-python = ">=3.11"
 license = "MIT"
