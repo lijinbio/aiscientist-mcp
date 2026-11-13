@@ -110,5 +110,19 @@ processed the original public 480-cell, 36,601-gene HECA query. All 480 labels a
 matched both the frozen original predictions and a fresh unchanged original wrapper in the
 same image, with maximum confidence difference 0.0. This used the installed MCP package,
 no source overlay and no operator Numba-cache override; the input-index compatibility path
-was exercised without changing expression values. The native call took 42.5s. Website bridge
-acceptance remains separate from this image and scientific regression.
+was exercised without changing expression values. The native call took 42.5s.
+
+## Normal website execution (2026-11-13)
+
+The normal website run `0fb4aa8eb425` executed the final 0.0.3 image on an A30 in Slurm
+`59540287`. The downloaded canonical and namespaced prediction CSVs were identical and
+matched all 480 labels and confidence values from the original production image on the
+same GPU model, with maximum absolute confidence difference 0.0 (unchanged tolerance `1e-6`).
+The retained reference came from a successful original inference phase in a diagnostic job
+whose later diagnostic phase failed; that job is not represented as wholly successful.
+
+Released image: [`scgpt-annotation-v0.0.3`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/scgpt-annotation-v0.0.3), OCI `sha256:1133d106342831e9d6cd7fc5961e38eb2043142852219105bac269065213b2d5`.
+
+These checks establish migration equivalence for the recorded model, harness, public subset
+and GPU. They do not establish prediction accuracy, cross-GPU numerical identity or a final
+model-written report audit. Earlier cross-GPU confidence differences remain recorded above.

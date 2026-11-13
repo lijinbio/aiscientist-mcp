@@ -54,5 +54,21 @@ interpreter and host Graphviz (also 2.42.4); its 587 × 539 PNG was byte-identic
 image output (SHA256 `ed60002b1764050f787d69c9e09f3e691c0992f091ca748d9b831964223edc36`).
 The earlier source-staged HPC host used Graphviz 2.44.0, not the website runtime. Tool and status responses
 stayed below 24 KB, including a long-line input whose complete content was preserved in its
-artifact. This installed-image test used deterministic inspection; model-backed descriptions
-and website bridge acceptance are separate checks.
+artifact. This installed-image test used deterministic inspection; the subsequent website
+check is recorded below.
+
+## Normal website execution (2026-11-13)
+
+Website run `db89ba14f023` completed `inspect_dataset` and `make_schematic` through the
+final 0.0.2 image in the same reviewed 13-tool workflow as the eleven scRNA tools.
+The deterministic inspection peek matched the original implementation. The generated
+description was checked for consistency with that input evidence, not byte equality.
+The exact DOT source and PNG matched the unchanged original renderer using the actual
+EyeServer Graphviz 2.42.4 runtime; canonical and namespaced artifacts were both preserved.
+
+Released image: [`data-utilities-v0.0.2`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/data-utilities-v0.0.2), OCI `sha256:dd89779ffa9d42597d7dc3d856a2cf71fb8d0552e1e778713092ffdc09aa951c`.
+
+The website diagram is 795 by 59 pixels and correctly reports a page-fit/aspect warning.
+Byte-identical rendering does not imply publication-quality layout. The workflow's report
+correction remains a separate gate; these tests do not certify generated prose or every
+supported input format.

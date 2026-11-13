@@ -87,8 +87,8 @@ Website run 36dba619cd19 exercised 0.0.3 with the selected Haiku model: HPO mapp
 and LIRICAL completed, but the literature peer's preview was truncated, so the
 8,621-row differential remained LIRICAL-only. This is failure evidence for the
 integration, not successful literature adjudication. The 0.0.4 resource repair is
-covered by real stdio tests with large synthetic evidence; released-image and
-website model acceptance must be recorded separately.
+covered by real stdio tests with large synthetic evidence; subsequent actual released-image
+and website results, including remaining collector/report failures, are recorded below.
 
 ## Real HPC validation (2026-11-12)
 
@@ -118,7 +118,7 @@ reason to conceal empty retrieval or represent a partial review as exhaustive.
 The local Docker image's own phenotype CLI and bundled literature CLI both
 passed actual stdio tool enumeration.
 
-The final fork prerelease `phenotype-diagnosis-v0.0.2` also passed actual MCP stdio
+The earlier fork prerelease `phenotype-diagnosis-v0.0.2` also passed actual MCP stdio
 acceptance from its installed wheels, with no source override (Python 3.12.16).
 OCI digest:
 `sha256:7da799af643c5ff03e2dd568f5d6db58b268915be64323d3c31630a7d8a670c2`;
@@ -138,5 +138,36 @@ Reproduce acceptance with
 The script hashes the supplied SIF, removes inherited source overrides, calls
 its installed native CLIs, checks model mapping and real cross-MCP evidence, and
 rejects an ungraded/error result as an end-to-end pass. Model tests used an
-isolated vLLM service; native Anthropic and strict public OpenAI compatibility
-remain unverified, and the application's guarded BYOK workflow remains available.
+isolated vLLM service; those tests alone do not establish native Anthropic or strict public
+OpenAI compatibility. The later selected-model website test is recorded separately below.
+
+## Final-image and website evidence (2026-11-13)
+
+The released 0.0.4 SIF passed actual native CLI/schema, failure-state, real LIRICAL reference
+and complete cross-MCP resource checks in CPU Slurm `59540938`, without a source overlay.
+Large-evidence grading in that allocation used an explicit synthetic fixture and made no
+generative-model calls. The first test job `59540889` failed because its test reference path
+omitted `/data`; that failure is retained separately.
+
+Released image: [`phenotype-diagnosis-v0.0.4`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/phenotype-diagnosis-v0.0.4), OCI `sha256:10af1539b9d86ebe6e33fa39506b9c58630c5c8bbec5eacaaab16894b656803b`.
+
+Normal website run `0532008b38de` completed all three reviewed scientific calls with the
+selected Haiku model observed in the UI. Its 8,621-row LIRICAL and adjudicated rankings have
+the same probabilities, identifiers and order as the unchanged original parser/algorithms.
+The independent fixed ranking calls used HP:0000662 + HP:0001133; the mapping step returned
+HP:0000662 + HP:0000580. Both excluded HP:0000365. These are distinct validation fixtures,
+not a claim that the mapped set was passed unchanged into ranking.
+
+The complete diagnosis correctly retained PRPF31 `association=false`, tier `NONE`,
+`evidence_status=unsupported` and all eight retrieved contexts. It did not establish
+supportive gene-disease evidence or a unique diagnosis from tied probabilities. Clinical
+text was synthetic and references/corpus were real. Provider identity is observed in the
+UI, not independently encoded by the downloaded bundle.
+
+End-to-end acceptance is not yet complete: the old application collector changed two
+scientific disease labels while redacting paths, so exact all-row comparisons failed even
+though numerical values matched. Original native JSON matches all 8,621 old-parser and
+adjudicated rows exactly. The bridge repair passes offline controls, but both original
+tasks still require read-only status recollection and exact comparison. A report-only
+correction must also remove the unsupported PRPF31 claim from the old generated report.
+Those gates remain pending; no new science is required and no historical failure is erased.

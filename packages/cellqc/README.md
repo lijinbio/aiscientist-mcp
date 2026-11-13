@@ -159,8 +159,8 @@ Focused controls found identical R-decoded input matrices and gene/barcode order
 native and baseline R scripts were identical after normalizing workspace paths and timestamps;
 isolated replays of both reproduced the baseline diagnostics. Direct upstream DecontX calls
 instead reproduced the initial native diagnostics on both tested CPU families and with
-explicit single-thread limits. These controls have not yet explained the original execution
-context difference; the complete-metrics parity check remains failed.
+explicit single-thread limits. At that stage these controls had not explained the original execution context difference.
+That complete-metrics comparison remains recorded as failed; subsequent controls are below.
 
 A later native acceptance of the published 0.0.3 image completed the same three-library
 pipeline and protocol controls, but **also failed strict scientific parity**. The fresh conda
@@ -169,10 +169,43 @@ checkpoint exchanged 24 retained cells, and doublet scores/classes, highly-varia
 and eight metrics columns differed. Counts on aligned common cells were identical; normalized
 values differed by at most approximately 8.9e-16. This is not equivalence of the full outputs.
 Version 0.0.4 replaces the fresh solve with the complete original scientific environment lock.
-The dependency difference is established; it does not yet establish the cause of every
-diagnostic difference. Its real-image acceptance must be recorded separately.
+The dependency difference is established. Subsequent frozen-environment and website
+acceptance are recorded below; the 0.0.3 failures are not relabeled as passes.
 
 These runs also retained warnings about doublet-caller disagreement and strong mitochondrial
 filtering in one library. The chosen 5% cutoff is an acceptance-test parameter, not a universal
 recommendation. No BAM was supplied, so this acceptance does not cover nuclear-fraction
-calculation. The application's existing implementation remains available during migration.
+calculation. These fixture-specific results do not establish a universal QC threshold.
+
+## Final-image and website evidence (2026-11-13)
+
+The frozen 0.0.4 scientific environment completed all three original libraries in Slurm
+`59537319`. Its strict comparison against a fresh, full original-tool replay (`59539631`)
+passed all nine checks in `59539874`, at the unchanged `1e-10` comparison tolerance. The
+fresh original replay itself differs from the first original baseline in the same four
+DecontX diagnostic columns. A controlled experiment on one AMD host, with identical inputs
+and recorded RNG state, reproduced both diagnostic outcomes by changing OpenBLAS threads
+from one to sixteen. This supports a thread-sensitive explanation; it does not prove the
+unobserved thread state of every earlier run or turn historical failures into passes.
+
+Version 0.0.5 preserves the frozen scientific closure and fixes default CLI interpreter
+selection. Its actual SIF passed default CLI/schema and dual-interpreter checks in `59538515`.
+The normal website run `a1608e696d7b` then executed the final image in `59539880`, using all
+34 verified input files from the three original libraries plus a provenance manifest.
+All nine scientific comparisons against the first original baseline passed: matrices,
+integer counts, raw values, cell/gene metadata and complete CSV tables, retaining 34,274 cells
+across mouse and human. Plot/PDF timestamp bytes are not part of scientific equality.
+
+The first website artifact collection failed across filesystems after science completed;
+that failure and a cancelled retry remain recorded. An approved status-only recovery of the
+original task completed in `59541576`, without new QC. Inventory `59541627` verified both
+species checkpoints, both saved processed datasets and the full 24-file result tree.
+The browser-downloaded full CellQC ZIP matched every exported file by SHA-256
+(201,849,813 uncompressed bytes). No unused BAM was staged.
+
+Released image: [`cellqc-v0.0.5`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/cellqc-v0.0.5), OCI `sha256:c9e83a362e6bc7a10609d76d53861f5ac59fade870e262d86aba8399d4c724e1`.
+
+The website report still requires a reviewed correction: `ambient_compare` is declared by
+the actual schema, and applied thresholds/counts must come from the full result. Seed 42 is
+recorded in the approved request; it must not be inferred from a default. Report acceptance
+is pending independently of the completed scientific, checkpoint and full-download checks.

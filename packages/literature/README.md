@@ -102,10 +102,10 @@ stdio-to-inline-worker run against a local synthetic HTTP service, confinement t
 routing, and PaperQA configuration tests. These prove software behavior on synthetic fixtures.
 They do not establish parity on the school's real corpus or validate a released image.
 
-Before enabling this port in AiScientist, build and pin its image, run the original and port on the
-same approved corpus/settings/model, compare citations, passages, verified gene/hit/request tables,
-and verify the website-to-HPC3-to-artifact chain. Keep the existing application tools until that
-acceptance passes. No release tag or digest is supplied by this source-only change.
+Deployment acceptance separately checks a pinned released image, the approved real corpus/model,
+citations and passages, extraction review flags and the website-to-HPC-to-artifact chain.
+The recorded runs below distinguish early source-staged tests, released-image tests and
+actual website results. A successful tool call alone does not certify a generated report.
 
 ## Tool reference
 
@@ -182,7 +182,7 @@ session and did not forward that session's credentials.
 - Task failure/status paths and bounded native responses were checked. The local
   Docker image also passed native stdio tool enumeration.
 
-The final fork prerelease `literature-v0.0.2` was then tested on CPU Slurm with
+The earlier fork prerelease `literature-v0.0.2` was then tested on CPU Slurm with
 its installed wheel, no source override, and the same public corpus/model setup.
 Its OCI digest is
 `sha256:05d85119e06222b6d2e583db1619f27ea6b55bdcb371b1f2707169d4b39c81b1`;
@@ -206,11 +206,10 @@ The binding file contains endpoint/model/key-file path; it does not contain the
 credential value. `--only deep_literature --question ...` records a focused
 follow-up without replacing the original evidence.
 
-The verified model transport is vLLM's OpenAI-compatible chat interface, including
-Qwen thinking controls. Strict public OpenAI endpoints and native Anthropic are
-not established by these tests. Existing guarded gateway BYOK paths remain in
-place. Zero values in the unpriced model's cost/pilot fields are not billing
-measurements or proof that no model calls occurred.
+Those early runs verified vLLM's OpenAI-compatible chat interface, including Qwen thinking
+controls; they do not establish strict public OpenAI or native Anthropic compatibility.
+Zero values in that unpriced model's cost/pilot fields are not billing measurements or
+proof that no model calls occurred. Later website selected-model/cost evidence is below.
 
 
 ## Complete results over MCP resources (0.0.4)
@@ -229,5 +228,28 @@ The website phenotype acceptance exposed a real integration gap in 0.0.3:
 its peer correctly refused a truncated literature preview but had no protocol
 route to the complete evidence. Version 0.0.4 adds that route without changing
 retrieval, model selection or scientific scoring. Local real MCP protocol tests
-cover large synthetic evidence and corrupt/missing pages; final released-image
-and selected-session website acceptance are separate gates.
+cover large synthetic evidence and corrupt/missing pages. Final released-image and
+selected-session website results are recorded below; report grounding remains a separate gate.
+
+## Final-image and website evidence (2026-11-13)
+
+The actual 0.0.4 SIF passed native CLI/schema, public retrieval, complete result-resource
+paging/checksums and failure-state controls in CPU Slurm `59540888`, without a source
+overlay. These CPU protocol/resource controls made no generative-model calls.
+
+Released image: [`literature-v0.0.4`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/literature-v0.0.4), OCI `sha256:ea3d66b0b7bc6f217da5dd78e1fd16ae018cea780e45728a097fbaa306fd12e7`.
+
+Normal website run `30e3f3c21630` then completed all four reviewed native actions with the
+selected Haiku model observed in the UI. The downloaded results contain three real
+identifier/citation records, three corpus passages, a deep answer supported by the retrieved
+source and the complete evidence array. Bounded extraction retained the actual zero eligible
+gene result; no unsupported gene was promoted. Recorded pilot cost was $0.001635 and total
+cost $0.001761, below the approved $0.10 cap. These are bounded test outcomes, not exhaustive
+corpus curation or proof of a positive gene-extraction case.
+
+Scientific/result checks passed, but the old application bridge omitted substantive fields
+from large replies and the generated report needs correction from the verified full results.
+The semantic response repair passes offline controls; actual reviewed report-only correction
+is pending. Provider identity was observed in the UI and is not independently encoded in
+the downloaded bundle. Historical abstentions and flagged `RP11` results above remain
+separate evidence, not successful verified gene lists.

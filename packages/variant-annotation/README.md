@@ -115,6 +115,20 @@ The unit fixtures do not execute real VEP. Separate Slurm acceptance runs used t
 references. Two public example variants completed offline annotation; the original tool's
 counts and all seven result artifacts matched. Native tools/list, invalid-input rejection,
 status and unchanged-request reuse also passed. The 0.0.2 image verified common runtime 0.0.4.
-This acceptance used plugins disabled and
-does not cover REST, optional predictors, patient VCFs or the website's end-to-end flow.
-Website validation is still required before retiring the original application tool.
+This acceptance used plugins disabled. It does not cover REST, optional predictors or
+patient VCFs. The final 0.0.2 native-image check ran in Slurm `59536747`.
+
+## Normal website execution (2026-11-13)
+
+Website run `25e53774b36d` invoked the final native 0.0.2 image through the reviewed typed
+plan in Slurm `59540165`. Offline GRCh38 annotation of the two public example variants
+completed. All seven downloaded scientific artifacts matched the original-tool baseline
+byte-for-byte: the summary JSON, annotation TSV and five clinical/priority/distribution CSVs.
+The ordinary website result ZIP was downloaded. Server reference settings remained
+operator-controlled; no source overlay was used.
+
+Released image: [`variant-annotation-v0.0.2`](https://github.com/liujs123456/aiscientist-mcp/releases/tag/variant-annotation-v0.0.2), OCI `sha256:92c875d268b8f89054860cedd13dcbd5b53498e9321868180e9e56a2b56eb388`.
+
+This is a bounded VEP112/ClinVar migration check with plugins disabled, not whole-genome,
+all-assembly, optional-predictor or clinical validation. Scientific-file/download parity
+does not by itself certify every statement in a generated report.

@@ -112,8 +112,8 @@ environment at the recorded test parameters:
 returned scientific results, exported CSV values and five AnnData checkpoints (including X,
 obs, var, layers and raw). The installed-image test also passed cache reuse, distinct rerun and
 failed-attempt history, status and strict argument checks. This is algorithm-port parity, not a comparison with the old production `analysis.sif`
-dependency environment. Old-environment and website bridge acceptance remain separate gates
-before retiring the original tools.
+dependency environment. Subsequent old-environment and website checks are recorded below;
+this earlier same-environment result alone was not a retirement gate.
 
 A subsequent actual old-environment comparison found marker-score and first-pass label
 differences with the newer dependencies; a direct same-checkpoint comparison confirmed the
@@ -146,7 +146,23 @@ runs from the installed image without a source overlay or operator cache overrid
 Release identity: OCI `sha256:6bf03b30e2c9a3af6043eef1751518494ae59b728cb175faf003ecab697b7afa`,
 converted SIF `sha256:7fa796929464cb9d769f14529ee7ddc51667aa289219c50d0fa3c9642d4d3341`.
 Default CLI, full schema and all 75 package / 13,117 file checks passed in staging job
-`59540097`. Website bridge acceptance remains a separate gate before legacy-tool retirement.
+`59540097`. The later normal website execution is recorded below.
+
+### Normal website execution (2026-11-13)
+
+Website run `db89ba14f023` invoked all eleven native tools in the reviewed order, alongside
+the two data-utility tools, using the final 0.0.5 image and the verified public HECA subset.
+All 47 scientific/artifact checks passed against final native job `59540145`: full scientific
+result fields, 25 tables, and five AnnData checkpoints including X/obs/var/layers/raw and
+embedding/graph slots. Checkpoint files were additionally byte-identical in this run.
+Comparison tolerances remain `rtol=1e-6`, `atol=1e-8`; only known artifact-root/path display
+differences are normalized. AnnData `uns`, figure bytes and generated model prose are not
+claimed to be equal. This bounded 480-cell regression is not a full-atlas benchmark.
+
+The actual data inspection and DOT/PNG checks are documented in data-utilities. The website
+report needs a separate correction: the ORA `top_n_genes=100` cap does not describe the
+GSEA rankings, which contained 1,502 genes for each of the two tested cell types. Scientific
+and file checks passed; corrected report acceptance remains pending.
 
 ## Scientific tool reference
 
