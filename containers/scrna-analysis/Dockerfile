@@ -1,5 +1,5 @@
 # Build from the workspace root after updating uv.lock.
-# docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.1 .
+# docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.2 .
 FROM ghcr.io/astral-sh/uv:0.13.0 AS uv
 FROM python:3.13-slim
 COPY --from=uv /uv /uvx /usr/local/bin/

@@ -15,6 +15,7 @@ import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 from aiscientist_mcp.common import jobs
 from aiscientist_mcp.common.paths import child_dir, safe_id
@@ -23,7 +24,17 @@ from jsonschema import Draft202012Validator
 from . import SERVER_NAME, __version__
 
 SPECS = json.loads(Path(__file__).with_name("tool_specs.json").read_text())
-TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "BOOT_FAIL", "DEADLINE"}
+TERMINAL = {
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    "TIMEOUT",
+    "OUT_OF_MEMORY",
+    "BOOT_FAIL",
+    "DEADLINE",
+    "REVOKED",
+    "SPECIAL_EXIT",
+}
 CHAINS = {
     "run_scanpy_qc": (),
     "run_clustering": ("adata_qc.h5ad",),
@@ -38,13 +49,35 @@ CHAINS = {
 
 
 def _json(path, value):
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(value, indent=2, allow_nan=False))
-    tmp.replace(path)
+    jobs.write_json(path.parent, path.name, value)
+
+
+def _metadata(path):
+    return jobs.managed_file(path.parent, path.name)
+
+
+def _read(path, default=None):
+    path = _metadata(path)
+    return json.loads(path.read_text()) if path.exists() else default
+
+
+def _signature(request):
+    identity = {key: value for key, value in request.items() if key != "analysis_id"}
+    return hashlib.sha256(json.dumps(identity, sort_keys=True, allow_nan=False).encode()).hexdigest()[:32]
+
+
+def _settings():
+    return {
+        "genesets": os.environ.get("SCRNA_GENESETS_DIR") or os.environ.get("AISCIENTIST_GENESETS_DIR", ""),
+        "checkpoint_root": os.environ.get("SCRNA_CHECKPOINT_ROOT", ""),
+    }
 
 
 def workspace(analysis_id):
-    base = Path(os.environ.get("AISCI_DATA_DIR", "./data")).expanduser().resolve()
+    configured = Path(os.environ.get("AISCI_DATA_DIR", "./data")).expanduser()
+    if configured.is_symlink():
+        raise ValueError("configured data directory must not be a symlink")
+    base = configured.resolve()
     root = base / SERVER_NAME
     if root.is_symlink() or root.resolve().parent != base:
         raise ValueError("server workspace escapes the configured data directory")
@@ -63,7 +96,7 @@ def workspace(analysis_id):
 
 @contextlib.contextmanager
 def lock(path):
-    with path.open("a") as handle:
+    with _metadata(path).open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
@@ -75,8 +108,8 @@ def lock(path):
 
 
 def bind_dataset(ws, supplied):
-    binding = ws / "dataset.json"
-    previous = json.loads(binding.read_text()).get("path", "") if binding.exists() else ""
+    binding = _metadata(ws / "dataset.json")
+    previous = _read(binding, {}).get("path", "")
     configured = os.environ.get("SCRNA_DATASET") or os.environ.get("AISCIENTIST_DATASET", "")
     text = supplied or previous or configured
     if not text:
@@ -89,6 +122,8 @@ def bind_dataset(ws, supplied):
         raise ValueError("dataset is outside SCRNA_READ_ROOTS and is not the configured SCRNA_DATASET")
     if not path.exists():
         raise ValueError("dataset does not exist")
+    if path.is_relative_to(ws) or (path.is_dir() and ws.is_relative_to(path)):
+        raise ValueError("dataset and analysis workspace must be separate; use input for a work checkpoint")
     if previous and previous != str(path):
         raise ValueError("analysis_id is already bound to another dataset; use a new analysis_id")
     _json(binding, {"path": str(path)})
@@ -97,12 +132,23 @@ def bind_dataset(ws, supplied):
 
 def _identity(path):
     path = Path(path)
+    if path.is_symlink():
+        raise ValueError("input and output identities must not follow symlinks")
     if not path.exists():
         return {"path": str(path), "missing": True}
     if path.is_dir():
-        return {"path": str(path), "files": [_identity(p) for p in sorted(path.rglob("*")) if p.is_file()]}
+        entries = sorted(path.rglob("*"))
+        if any(p.is_symlink() for p in entries):
+            raise ValueError("input directory contains a symlink")
+        return {"path": str(path), "files": [_identity(p) for p in entries if p.is_file()]}
     stat = path.stat()
-    return {"path": str(path.resolve()), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+    return {
+        "path": str(path.resolve()),
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "ctime_ns": stat.st_ctime_ns,
+        "inode": stat.st_ino,
+    }
 
 
 def _handoff_checkpoints(ws):
@@ -114,8 +160,7 @@ def _handoff_checkpoints(ws):
     if root.is_symlink() or not root.is_dir():
         raise ValueError("SCRNA_CHECKPOINT_ROOT must be a regular directory")
     root = root.resolve()
-    manifest = ws / "checkpoint_imports.json"
-    imported = json.loads(manifest.read_text()) if manifest.exists() else {}
+    imported = _read(ws / "checkpoint_imports.json", {})
     for name, original in imported.items():
         source = root / name
         if source.is_symlink() or _identity(source) != original:
@@ -179,35 +224,48 @@ def _validate(name, args):
 
 
 def _task_dir(ws, task_id):
-    path = child_dir(ws / "jobs", task_id, "task_id", must_exist="request.json")
-    if path.is_symlink() or path.resolve().parent != (ws / "jobs").resolve():
+    parent = ws / "jobs"
+    path = child_dir(parent, task_id, "task_id")
+    if parent.is_symlink() or path.is_symlink() or path.resolve().parent != parent.resolve():
         raise ValueError("task path escapes this analysis")
+    if not _metadata(path / "request.json").is_file():
+        raise ValueError("unknown task_id")
     return path
 
 
 def _outputs(ws):
-    return [
-        _identity(path)
-        for folder in ("work", "artifacts")
-        for path in sorted((ws / folder).rglob("*"))
-        if path.is_file()
-    ]
+    if any((ws / folder).is_symlink() for folder in ("work", "artifacts")):
+        raise ValueError("analysis output directory contains a symlink")
+    paths = [path for folder in ("work", "artifacts") for path in sorted((ws / folder).rglob("*"))]
+    if any(path.is_symlink() for path in paths):
+        raise ValueError("analysis output contains a symlink")
+    return [_identity(path) for path in paths if path.is_file()]
 
 
 def _cache_valid(task):
-    saved = task / "outputs.json"
-    if not saved.exists():
+    saved = _read(task / "outputs.json")
+    if saved is None:
         return False
-    return all(item == _identity(item["path"]) for item in json.loads(saved.read_text()))
+    return saved == _outputs(task.parent.parent)
 
 
 def _response(ws, analysis_id, task_id):
     path = _task_dir(ws, task_id)
-    state = jobs.status(jobs.JobSettings.from_env(), path)
-    result_path = path / "result.json"
-    result = json.loads(result_path.read_text()) if result_path.exists() else {}
+    # A concurrent poll can see the atomically published request just before the
+    # executor publishes state. Do not overwrite that initial state with {}.
+    state = (
+        jobs.status(jobs.JobSettings.from_env(), path)
+        if _metadata(path / "state.json").exists()
+        else {"state": "PENDING", "note": "waiting for executor submission"}
+    )
+    result_path = _metadata(path / "result.json")
+    # Preemption may leave a previous allocation's payload beside the new active
+    # executor state. Expose scientific output only when the attempt is terminal.
+    result = _read(result_path, {}) if state.get("state") in TERMINAL else {}
     if state.get("state") == "COMPLETED" and not result_path.exists():
         state = state | {"state": "FAILED", "error": "job completed without result.json"}
+    if state.get("state") in TERMINAL - {"COMPLETED"} and result.get("status") in {None, "ok", "empty"}:
+        result["status"] = "error"
     # Identity cannot be overwritten by a domain result.
     return (
         result
@@ -234,27 +292,37 @@ def submit(name, args, analysis_id="default", dataset="", rerun=False):
             "args": args,
             "dataset": bound,
             "inputs": identity,
-            "genesets": os.environ.get("SCRNA_GENESETS_DIR") or os.environ.get("AISCIENTIST_GENESETS_DIR", ""),
-            "checkpoint_root": os.environ.get("SCRNA_CHECKPOINT_ROOT", ""),
+            **_settings(),
         }
-        task_id = hashlib.sha256(json.dumps(request, sort_keys=True, allow_nan=False).encode()).hexdigest()[:32]
-        active = ws / "active.json"
+        signature = _signature(request)
+        active = _metadata(ws / "active.json")
         if active.exists():
-            active_id = json.loads(active.read_text())["task_id"]
+            prior = _read(active)
+            active_id = prior["task_id"]
             current = _response(ws, analysis_id, active_id)
             if current["state"] not in TERMINAL:
-                if task_id == active_id and not rerun:
+                if signature == prior.get("signature", active_id) and not rerun:
                     return current
                 raise ValueError(f"analysis {analysis_id} has active task {active_id}; poll scrna_job_status")
-        task = child_dir(ws / "jobs", task_id, "task_id")
-        if (task / "request.json").exists() and not rerun:
-            old = _response(ws, analysis_id, task_id)
-            if old["state"] == "COMPLETED" and _cache_valid(task):
+            if (
+                not rerun
+                and current["state"] == "COMPLETED"
+                and signature == prior.get("signature", active_id)
+                and _cache_valid(_task_dir(ws, active_id))
+            ):
+                return current
+        cached = _read(ws / "cache.json", {}).get(signature) if not rerun else None
+        if cached:
+            old = _response(ws, analysis_id, cached)
+            if old["state"] == "COMPLETED" and _cache_valid(_task_dir(ws, cached)):
                 return old
-        task.mkdir(exist_ok=True)
+        # Every actual execution gets an immutable attempt directory. A failure or
+        # explicit rerun must never erase the request/result of an earlier attempt.
+        task_id = signature + "-" + uuid4().hex[:8]
+        task = child_dir(ws / "jobs", task_id, "task_id")
+        task.mkdir(exist_ok=False)
         _json(task / "request.json", request | {"analysis_id": analysis_id})
-        (task / "result.json").unlink(missing_ok=True)
-        _json(active, {"task_id": task_id})
+        _json(active, {"task_id": task_id, "signature": signature})
         try:
             executor = jobs.JobSettings.from_env()
             python = os.environ.get("AISCI_JOB_PYTHON") or ("python" if executor.prefix else sys.executable)
@@ -274,7 +342,9 @@ def submit(name, args, analysis_id="default", dataset="", rerun=False):
             )
         except Exception:
             # No orphaned active record should block every later submission.
-            _json(task / "done.json", {"state": "FAILED", "error": "executor could not submit the job"})
+            failed = {"state": "FAILED", "error": "executor could not submit the job"}
+            jobs.write_state(task, failed)
+            _json(task / "done.json", failed)
             raise
         result = _response(ws, analysis_id, task_id)
         if result["state"] == "FAILED":
@@ -288,24 +358,29 @@ def submit(name, args, analysis_id="default", dataset="", rerun=False):
 def status(analysis_id, task_id):
     safe_id(task_id, "task_id")
     ws = workspace(analysis_id)
-    with lock(ws / ".submit.lock"):
-        return _response(ws, analysis_id, task_id)
+    # common.jobs serializes executor status/retry updates itself. The submit lock
+    # is held throughout inline execution, so taking it here would block polling.
+    return _response(ws, analysis_id, task_id)
 
 
 def execute(analysis_id, task_id):
     ws = workspace(analysis_id)
     task = _task_dir(ws, task_id)
-    request = json.loads((task / "request.json").read_text())
+    request = _read(task / "request.json")
     with lock(ws / ".analysis.lock"):
+        if request.get("analysis_id") != analysis_id or request.get("version") != __version__:
+            raise ValueError("worker request belongs to another analysis or package version")
+        if any(request.get(key) != value for key, value in _settings().items()):
+            raise ValueError("analysis configuration changed after submission; submit a new task")
         name, args = request["tool"], request["args"]
         _validate(name, args)
         dataset = bind_dataset(ws, request["dataset"])
         if request["inputs"] != _input_identity(ws, name, args, dataset):
             raise ValueError("input changed after submission; submit again against the current input")
-        manifest = ws / "checkpoint_imports.json"
-        imported = json.loads(manifest.read_text()) if manifest.exists() else {}
+        manifest = _metadata(ws / "checkpoint_imports.json")
+        imported = _read(manifest, {})
         for source in _handoff_checkpoints(ws):
-            shutil.copy2(source, ws / "work" / source.name)
+            shutil.copy2(source, _metadata(ws / "work" / source.name))
             imported[source.name] = _identity(source)
         if imported:
             _json(manifest, imported)
@@ -330,3 +405,12 @@ def execute(analysis_id, task_id):
         if result.get("status") != "ok":
             raise ValueError(result.get("error") or result.get("note") or result.get("status", "analysis failed"))
         _json(task / "outputs.json", _outputs(ws))
+        # Some tools update the checkpoint they read (doublet detection), and
+        # handoff imports replace external input identity with a local checkpoint.
+        # Both pre- and post-execution inputs may reuse this successful attempt,
+        # but only while the full output inventory remains unchanged.
+        after = request | {"inputs": _input_identity(ws, name, args, dataset)}
+        cache = _read(ws / "cache.json", {})
+        for identity in (_signature(request), _signature(after)):
+            cache[identity] = task_id
+        _json(ws / "cache.json", cache)

@@ -110,6 +110,10 @@ and the common worker subprocess with deterministic bcftools/VEP fixture executa
 exercise offline selection, isolated outputs, input/reference-setting reuse, path confinement,
 invalid input, concurrent submissions, REST opt-in and stdio calls without network.
 
-These tests do not execute real VEP, download references, contact Ensembl or build a production
-image. A real-data run through the released image and website is required before retiring the
-original application tool.
+The unit fixtures do not execute real VEP. A separate Slurm acceptance run used the published
+0.0.1 image directly, without a Python source overlay, and the site's read-only VEP 112/ClinVar
+references. Two public example variants completed offline annotation; the original tool's
+counts and all seven result artifacts matched. Native tools/list, invalid-input rejection,
+status and unchanged-request reuse also passed. This acceptance used plugins disabled and
+does not cover REST, optional predictors, patient VCFs or the website's end-to-end flow.
+Website validation is still required before retiring the original application tool.

@@ -46,10 +46,14 @@ No arbitrarily supplied result path is copied back to a client.
 
 A dataset binding cannot be changed halfway through an analysis. Task identity incorporates
 the tool, arguments, input file identities and configured gene sets. Changed outputs invalidate
-completed-job reuse. A workspace has at most one active analysis task; submission and worker
-locks prevent concurrent checkpoint writers. File identity uses canonical path, size and
-nanosecond mtime, not a content checksum. Operators must treat admitted reference datasets as
-immutable while a task runs.
+completed-job reuse, including added files. Each actual execution gets a distinct `task_id`;
+explicit reruns and retries after failure retain earlier request/result records. Successful
+attempts are reusable only while both input identity and the complete output inventory match.
+A workspace has at most one active analysis task; submission and worker locks prevent concurrent
+checkpoint writers, while status remains available during inline work. Metadata is published
+atomically and refuses symlinks. File identity uses canonical path, size, nanosecond mtime/ctime
+and inode, not a content checksum. Operators must treat admitted reference datasets as immutable
+while a task runs. A changed upstream handoff requires a new `analysis_id`.
 
 The server imports the analysis stack only inside worker functions. It can list schemas without
 loading Scanpy. Every long call uses `aiscientist_mcp.common.jobs`; `inline` is appropriate when
@@ -67,7 +71,7 @@ uv run aiscientist-mcp --server scrna-analysis-mcp call run_scanpy_qc \
 ```
 
 Build the image from the repository root with
-`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.1 .`.
+`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.2 .`.
 The image installs this package and its dependencies from the workspace's frozen lock.
 A deployment must pin the released image digest; this source package does not invent one.
 
@@ -521,3 +525,11 @@ CellQC run changes that upstream checkpoint, this analysis refuses further work 
 a new `analysis_id`; it never combines old clustering with the replacement QC. Existing local
 checkpoints remain untouched. An initial explicit `input="work/adata_qc.h5ad"` may refer to an
 admitted handoff checkpoint before it is copied.
+
+### Runtime revision 0.0.2
+
+This revision preserves the scientific functions and tool schemas. It adds durable attempt
+history, atomic metadata, independent concurrent polling and cache invalidation for complete
+output inventories. Executor failures cannot be reported as successful scientific results;
+preempted active jobs do not expose a stale prior payload. Runtime regressions cover these
+behaviors, changed worker configuration and metadata/output symlink refusal.
