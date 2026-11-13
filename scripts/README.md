@@ -2,6 +2,7 @@
 
 Run these scripts from a checkout of this repository inside the matching published MCP image on a compute node. Bind the scripts read-only and use a dedicated writable output directory. They do not require the AiScientist application package. They are operator commands, not additional MCP tools or planner-selectable executable overrides.
 
+- `fetch_genesets.py DEST_DIR` preserves the optional Enrichr GMT reference download; bind the selected destination read-only and set `SCRNA_GENESETS_DIR`. It never installs reference data into the app source.
 - `build_hpo_lexicon.py` refreshes the phenotype package's ontology asset from official HPO JSON. It preserves the phenotype subtree, exact synonyms and obsolete-term replacements.
 - `hpo_mapper_smoke.py` calls the native phenotype server against five synthetic descriptions. Generative mapping requires explicit server model settings; no patient input is included.
 - `build_paperqa_directory_index.py` builds the original PaperQA directory index with a local embedding model and a disabled generative endpoint. The embedding must match `LITERATURE_EMBEDDING` at retrieval time.
