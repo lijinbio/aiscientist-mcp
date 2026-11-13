@@ -19,5 +19,6 @@ ignore = ["E501", "S101", "S603", "S607", "S310"]
 "**/tests/**" = ["S"]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --import-mode=importlib"
 testpaths = ["packages"]
+pythonpath = ["packages/visionkb-kg/tests"]

@@ -6,7 +6,26 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 
 ## [Unreleased]
 
+### Fixed
+
+- `atlas-expression-exploration`: `get_summary.level` exposes its three supported values in the
+  MCP input schema and rejects unsupported levels before reading the server settings or query data.
+- `atlas-expression-exploration` 0.0.4: stream full-transcriptome library totals in bounded row
+  chunks, retaining only query genes and necessary metadata. This avoids loading the full
+  atlas, unrelated layers and raw matrices for a small gene query. Missing observation
+  columns now name the required server setting before matrix reading begins.
+
 ### Added
+
+- Seven standalone server packages (0.0.1): `scrna-analysis` (11 analysis tools), `cellqc`,
+  `literature` (4 tools), `variant-annotation`, `phenotype-diagnosis` (3 tools),
+  `scgpt-annotation`, and `data-utilities` (2 tools), each with a typed job-status tool,
+  independent installation, domain descriptions, regression tests and container definition.
+- `common` 0.0.3: confined task workspaces, immutable attempt history, input/configuration
+  identities, explicit Slurm/local/inline execution, shared Cell Ranger readers, configured
+  model transport, and opt-in strict validation before the MCP SDK can coerce or discard fields.
+- Install and container CI covers the new server entry points. Workspace tests use importlib
+  collection so separate packages can retain their original test names.
 
 - Community and maintenance files following the AiScientist skills registry: code of conduct,
   security policy, citation, editor and pre-commit configuration, CODEOWNERS, Dependabot, issue
