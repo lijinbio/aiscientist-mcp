@@ -69,3 +69,19 @@ def test_atomic_writer_rejects_symlink_and_nonfinite_value(tmp_path):
         jobs.write_json(tmp_path, "result.json", {"value": float("nan")})
     assert not (tmp_path / "result.json").exists()
     assert not list(tmp_path.glob(".result.json.*"))
+
+
+@pytest.mark.parametrize("allocation_state,expected", [("CANCELLED", "FAILED"), ("RUNNING", "RUNNING")])
+def test_inline_allocation_can_be_checked_from_another_node(tmp_path, monkeypatch, allocation_state, expected):
+    cfg = jobs.JobSettings("inline", "", "", "")
+    jobs.write_state(
+        tmp_path,
+        {
+            "executor": "inline",
+            "state": "RUNNING",
+            "allocation_job_id": "12345",
+            "proc": {"host": "different-compute-node", "pid": 1, "start": "123"},
+        },
+    )
+    monkeypatch.setattr(jobs, "_slurm_state", lambda jid: allocation_state if jid == "12345" else "UNKNOWN")
+    assert jobs.status(cfg, tmp_path)["state"] == expected

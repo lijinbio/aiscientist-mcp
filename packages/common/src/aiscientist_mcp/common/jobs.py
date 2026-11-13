@@ -142,6 +142,24 @@ def _local_state(state):
                       "started it exited); for one-shot calls use AISCI_EXECUTOR=inline or slurm")  # fmt: skip
 
 
+def _inline_state(state):
+    """An interrupted inline caller cannot remain RUNNING after its allocation dies."""
+    owner = state.get("proc", {})
+    if owner.get("host") == socket.gethostname():
+        return _local_state(state)
+    allocation = state.get("allocation_job_id")
+    if allocation:
+        try:
+            current = _slurm_state(allocation)
+        except OSError:
+            current = "UNKNOWN"
+        if current in {"PENDING", "RUNNING", "CONFIGURING", "COMPLETING", "SUSPENDED"}:
+            return current, ""
+        if current != "UNKNOWN":
+            return "FAILED", f"inline allocation ended ({current}) without done.json; submit a new task"
+    return "UNKNOWN", "inline caller liveness cannot be checked here; inspect its original host/allocation"
+
+
 def submit(cfg, cmd, jobdir, name, slurm_opts=None, extra=None):
     """Start ``cmd`` (a list) for ``jobdir``. Returns the new state."""
     jobdir = Path(jobdir)
@@ -156,6 +174,10 @@ def submit(cfg, cmd, jobdir, name, slurm_opts=None, extra=None):
         state |= {"proc": {"host": socket.gethostname(), "pid": proc.pid, "start": _proc_start(proc.pid)},
                   "state": "RUNNING"}  # fmt: skip
     elif cfg.executor == "inline":
+        state["proc"] = {"host": socket.gethostname(), "pid": os.getpid(), "start": _proc_start(os.getpid())}
+        state.pop("allocation_job_id", None)
+        if allocation := os.environ.get("SLURM_JOB_ID"):
+            state["allocation_job_id"] = allocation
         write_state(jobdir, state | {"state": "RUNNING"})
         with managed_file(jobdir, "job.log").open("a") as log:
             rc = subprocess.run(full, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
@@ -204,6 +226,10 @@ def _status(cfg, jobdir):
         state |= json.loads(done.read_text())
     elif state.get("executor") == "local":
         state["state"], note = _local_state(state)
+        if note:
+            state["note"] = note
+    elif state.get("executor") == "inline" and state.get("state") in {"RUNNING", "UNKNOWN"}:
+        state["state"], note = _inline_state(state)
         if note:
             state["note"] = note
     elif "job_id" in state:

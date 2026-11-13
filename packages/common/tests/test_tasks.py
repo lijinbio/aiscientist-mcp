@@ -1,6 +1,9 @@
 """Real worker processes exercise task reuse, failures, confinement and async status."""
 
 import os
+import signal
+import subprocess
+import sys
 import time
 
 import pytest
@@ -139,4 +142,28 @@ def test_local_abrupt_exit_releases_workspace(config, monkeypatch):
         time.sleep(0.05)
     assert result["state"] == "FAILED" and result["status"] == "error"
     monkeypatch.setenv("AISCI_EXECUTOR", "inline")
+    assert tasks.submit(config, "analysis", "count", {})["state"] == "COMPLETED"
+
+
+def test_killed_inline_caller_does_not_stick_running(config):
+    code = (
+        "from aiscientist_mcp.common.tasks import TaskConfig, submit; "
+        'submit(TaskConfig("fixture", "fixture_worker", "0.0.1"), "analysis", "wait", {})'
+    )
+    process = subprocess.Popen([sys.executable, "-c", code], start_new_session=True)
+    ws = tasks.workspace(config, "analysis")
+    try:
+        deadline = time.monotonic() + 10
+        states = []
+        while time.monotonic() < deadline:
+            states = list((ws / "jobs").glob("*/state.json"))
+            if states:
+                break
+            time.sleep(0.02)
+        assert states, "inline job did not publish its owner"
+    finally:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=5)
+    result = tasks.status(config, "analysis", states[0].parent.name)
+    assert result["state"] == "FAILED"
     assert tasks.submit(config, "analysis", "count", {})["state"] == "COMPLETED"
