@@ -176,7 +176,8 @@ manifest-verified legacy mapping copies were considered ambiguous; that failure 
 recorded. After strict checksum/ownership validation of both copies, revision `c96bb649529e`
 passed 14 targeted checks across the complete main and technical browser reports. Both
 reports preserve the unsupported/false PRPF31 result, tier `NONE`, all eight contexts, the
-8,621-row ties and the distinct mapping/ranking HPO fixtures. Browser report and source
+8,621-row differential with tied leading candidates and the distinct mapping/ranking HPO
+fixtures. Browser report and source
 artifact bytes match the gateway. The original plan/state and all three accepted full-result
 hashes are unchanged; no scientific recomputation was performed.
 
