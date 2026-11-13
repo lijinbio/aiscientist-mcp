@@ -40,10 +40,14 @@ CellQC. Different species are processed separately with their own gene sets and 
 ## Installation and execution
 
 Install the package with `packages/common` in the CellQC environment, or build the image from
-`containers/cellqc/Dockerfile`. The image follows the production skill's conda environment:
-`cellqc=0.3.6 r-doubletfinder python=3.12`. Python 3.14 changes the multiprocessing start method
-and breaks CellQC's nuclear-fraction step, so this package requires Python 3.12–3.13.
-Image publication and its digest are separate release steps; no image digest is claimed here.
+`containers/cellqc/Dockerfile` for Linux amd64. Version 0.0.4 locks every scientific package
+archive to the validated production environment, including Python 3.12.14, R builds and
+native numerical libraries. MCP runs in a separate interpreter; the worker launcher selects
+the original scientific Python and executable search path. See the
+[container provenance](../../containers/cellqc/README.md) for the two exact environment locks.
+Python 3.14 changes the multiprocessing start method and breaks CellQC's nuclear-fraction
+step, so this package requires Python 3.12–3.13. Image publication and site acceptance remain
+separate validation steps.
 
 ```bash
 pip install ./packages/common ./packages/cellqc
@@ -71,6 +75,8 @@ Version 0.0.3 also confines worker output links, checks that the submitted packa
 still match, and hides stale prior results while a task is active or retrying. With
 `AISCI_JOB_PREFIX`, it runs `python` inside that command rather than a host virtualenv path;
 the operator may override the executable with `AISCI_JOB_PYTHON`.
+The 0.0.4 image sets this variable to its scientific worker launcher. Preserve that setting
+when running the image; its default `python` is the separate MCP transport interpreter.
 
 | Setting | Meaning |
 | --- | --- |
@@ -153,8 +159,16 @@ isolated replays of both reproduced the baseline diagnostics. Direct upstream De
 instead reproduced the initial native diagnostics on both tested CPU families and with
 explicit single-thread limits. These controls have not yet explained the original execution
 context difference; the complete-metrics parity check remains failed.
-It must be distinguished from exact reproducibility of every diagnostic or validation of a
-newly released image at the target site.
+
+A later native acceptance of the published 0.0.3 image completed the same three-library
+pipeline and protocol controls, but **also failed strict scientific parity**. The fresh conda
+solve had changed scientific dependencies. Total retention was still 34,274 cells; the human
+checkpoint exchanged 24 retained cells, and doublet scores/classes, highly-variable genes
+and eight metrics columns differed. Counts on aligned common cells were identical; normalized
+values differed by at most approximately 8.9e-16. This is not equivalence of the full outputs.
+Version 0.0.4 replaces the fresh solve with the complete original scientific environment lock.
+The dependency difference is established; it does not yet establish the cause of every
+diagnostic difference. Its real-image acceptance must be recorded separately.
 
 These runs also retained warnings about doublet-caller disagreement and strong mitochondrial
 filtering in one library. The chosen 5% cutoff is an acceptance-test parameter, not a universal

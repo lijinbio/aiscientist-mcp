@@ -150,7 +150,7 @@ provides-extras = ["test"]
 
 [[package]]
 name = "aiscientist-mcp-cellqc"
-version = "0.0.3"
+version = "0.0.4"
 source = { editable = "packages/cellqc" }
 dependencies = [
     { name = "aiscientist-mcp-common" },

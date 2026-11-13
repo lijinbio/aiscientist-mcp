@@ -52,10 +52,10 @@
       "server": "cellqc",
       "category": "single-cell",
       "package": "aiscientist-mcp-cellqc",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "description": "CellQC quality control for Cell Ranger deliveries with ambient correction and doublet removal",
       "entry_point": "cellqc-mcp",
-      "image": "ghcr.io/lijinbio/mcp-cellqc:0.0.3",
+      "image": "ghcr.io/lijinbio/mcp-cellqc:0.0.4",
       "path": "packages/cellqc",
       "tools": [
         {

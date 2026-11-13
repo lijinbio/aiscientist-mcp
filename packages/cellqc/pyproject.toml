@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-cellqc"
-version = "0.0.3"
+version = "0.0.4"
 description = "CellQC quality control for Cell Ranger deliveries with ambient correction and doublet removal"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
-dependencies = ["aiscientist-mcp-common>=0.0.3", "scanpy>=1.10,<2", "anndata>=0.10,<0.14",
+dependencies = ["aiscientist-mcp-common>=0.0.4", "scanpy>=1.10,<2", "anndata>=0.10,<0.14",
                 "pandas>=2", "numpy", "scipy", "matplotlib", "h5py"]
 
 [project.optional-dependencies]
