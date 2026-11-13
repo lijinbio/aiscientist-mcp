@@ -30,6 +30,7 @@ ENV PATH="/opt/aiscientist-mcp/.venv/bin:$PATH" \
     WANDB_MODE=offline \
     HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1 \
+    NUMBA_CACHE_DIR=/tmp/numba \
     MPLBACKEND=Agg
 ENTRYPOINT ["/opt/scgpt-mcp-entrypoint"]
 CMD ["scgpt-annotation-mcp"]

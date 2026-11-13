@@ -107,7 +107,21 @@ reason to conceal empty retrieval or represent a partial review as exhaustive.
 The local Docker image's own phenotype CLI and bundled literature CLI both
 passed actual stdio tool enumeration.
 
-Final published-SIF acceptance is separate. Run
+The final fork prerelease `phenotype-diagnosis-v0.0.2` also passed actual MCP stdio
+acceptance from its installed wheels, with no source override (Python 3.12.16).
+OCI digest:
+`sha256:7da799af643c5ff03e2dd568f5d6db58b268915be64323d3c31630a7d8a670c2`;
+converted SIF SHA-256:
+`717c118c27bb87b792e2f66b2f7ff881bc2da2ea64e7f925456a475f3dc2e52f`.
+HPO mapping, LIRICAL and model-backed diagnosis completed in 11.13, 9.18 and
+371.24 seconds respectively. Diagnosis preserved all 8,621 candidates and one
+graded literature record obtained through the bundled independent literature
+MCP process; its native response was 15,287 bytes with the complete result saved
+separately. Status polling and invalid type/unknown argument rejection passed.
+The clinical text and HPO terms were synthetic; the references, corpus retrieval
+and isolated authenticated model service were real.
+
+Reproduce acceptance with
 `containers/literature/validate_hpc.py phenotype --image ... --output ...
 --corpus ... --binding ... --lirical-data ...` in an authorized CPU allocation.
 The script hashes the supplied SIF, removes inherited source overrides, calls

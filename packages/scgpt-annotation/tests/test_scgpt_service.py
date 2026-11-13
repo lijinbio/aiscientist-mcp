@@ -232,3 +232,21 @@ def test_failed_inline_tool_exposes_pollable_task_identity(fixture_harness):
             assert "scgpt_annotate-" in message and "poll scgpt_job_status" in message
 
     asyncio.run(check())
+
+
+def test_worker_provides_writable_numba_cache_without_home(fixture_harness, monkeypatch, tmp_path):
+    from aiscientist_mcp.scgpt_annotation.server import scgpt_annotate
+
+    monkeypatch.delenv("NUMBA_CACHE_DIR", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "unavailable-home"))
+    _, _, harness = fixture_harness
+    step = harness / "step1_preprocess.py"
+    step.write_text(
+        step.read_text() + "import os\ncache=Path(os.environ['NUMBA_CACHE_DIR'])\n"
+        "assert cache.is_dir()\n(cache/'write-probe').write_text('writable')\n"
+    )
+    result = scgpt_annotate(analysis_id="readonly-image")
+    assert result["state"] == "COMPLETED"
+    cache = Path(os.environ["AISCI_DATA_DIR"]) / "scgpt-annotation/readonly-image/work/numba-cache"
+    assert (cache / "write-probe").read_text() == "writable"
+    assert not (tmp_path / "unavailable-home").exists()

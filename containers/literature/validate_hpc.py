@@ -28,6 +28,8 @@ def arguments():
     parser.add_argument("--corpus", type=Path)
     parser.add_argument("--binding", type=Path)
     parser.add_argument("--lirical-data", type=Path)
+    parser.add_argument("--only", help="one named action, for a focused follow-up check")
+    parser.add_argument("--question", help="explicit public literature question for a follow-up")
     parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
@@ -105,6 +107,9 @@ def launch(args):
         "--output",
         out,
     ]
+    for option in ("only", "question"):
+        if getattr(args, option):
+            command += ["--" + option, getattr(args, option)]
     raise SystemExit(subprocess.run(command, env=env, check=False).returncode)
 
 
@@ -130,7 +135,8 @@ async def check(args):
             (
                 "deep_literature",
                 {
-                    "question": "What evidence supports PRPF31 haploinsufficiency as a mechanism of retinitis pigmentosa?"
+                    "question": args.question
+                    or "What evidence supports PRPF31 haploinsufficiency as a mechanism of retinitis pigmentosa?"
                 },
             ),
             (
@@ -165,6 +171,10 @@ async def check(args):
             ),
         ]
     )
+    if args.only:
+        specs = [(name, parameters) for name, parameters in specs if name == args.only]
+        if not specs:
+            raise ValueError("--only must name an action in the selected server")
     params = StdioServerParameters(command=command, env=dict(os.environ))
     async with Client(params, read_timeout_seconds=1800) as client:
         listing = await client.list_tools()
@@ -201,6 +211,10 @@ async def check(args):
                 full = data
             if tool == "deep_literature":
                 assert full.get("contexts") and full.get("answer")
+                answer = full["answer"].strip().lower().rstrip(".! ")
+                assert answer not in {"i cannot answer", "cannot answer", "i don't know", "no answer"}, (
+                    "model abstention is recorded, not counted as substantive answer acceptance"
+                )
             elif tool == "extract_haploinsufficient_genes":
                 assert full["n_judged"] == 4
             elif tool == "map_phenotype_to_hpo":

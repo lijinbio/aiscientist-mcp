@@ -40,6 +40,10 @@ def execute(request, ws):
     work.mkdir(exist_ok=True)
     out = confined_child(work, "scgpt")
     out.mkdir(exist_ok=True)
+    # Scanpy imports cached Numba functions before inference. A read-only SIF and
+    # unmounted home provide no writable default cache, even when CUDA is ready.
+    cache = confined_child(work, "numba-cache")
+    cache.mkdir(exist_ok=True)
     artifacts = confined_child(ws, "artifacts")
     artifacts.mkdir(exist_ok=True)
     data = confined_child(artifacts, "data")
@@ -53,6 +57,7 @@ def execute(request, ws):
         "TRANSFORMERS_OFFLINE": "1",
         "MPLBACKEND": "Agg",
     }
+    env.setdefault("NUMBA_CACHE_DIR", str(cache))
     if settings["require_cuda"]:
         subprocess.run(
             [python, "-c", "import torch; assert torch.cuda.is_available(), 'scGPT requires a CUDA GPU allocation'"],

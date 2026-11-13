@@ -184,13 +184,29 @@ session and did not forward that session's credentials.
 - Task failure/status paths and bounded native responses were checked. The local
   Docker image also passed native stdio tool enumeration.
 
-These are source-staged HPC and local-image checks, not a claim that the final
-published SIF has passed. Re-run the exact SIF with
+The final fork prerelease `literature-v0.0.2` was then tested on CPU Slurm with
+its installed wheel, no source override, and the same public corpus/model setup.
+Its OCI digest is
+`sha256:05d85119e06222b6d2e583db1619f27ea6b55bdcb371b1f2707169d4b39c81b1`;
+the converted SIF SHA-256 is
+`ff01e6f070692d7ce3313c4dc61b9e19c6bbe024e712361d18bca95d29f87f60`.
+All four actions, status polling, wrong-type rejection and unknown-argument
+rejection passed. Extraction again judged four passages and retained the flagged
+`RP11` candidate. The initial mechanism question returned eight contexts but
+`I cannot answer.`; this is retained as an abstention, not substantive answer
+acceptance. A focused follow-up asking about the published PRPF31 deletion and
+family segregation returned one cited context and an answer in 189.79 seconds
+(8,383-byte native response). The validator now rejects a bare abstention as a
+substantive-answer pass. These bounded checks do not validate the answer's causal
+interpretation or make the corpus review exhaustive.
+
+Reproduce the exact-SIF check with
 `containers/literature/validate_hpc.py literature --image ... --output ...
 --corpus ... --binding ...` inside an authorized CPU allocation. The validator
 records its SHA-256 and calls the image's installed CLI without a source override.
 The binding file contains endpoint/model/key-file path; it does not contain the
-credential value.
+credential value. `--only deep_literature --question ...` records a focused
+follow-up without replacing the original evidence.
 
 The verified model transport is vLLM's OpenAI-compatible chat interface, including
 Qwen thinking controls. Strict public OpenAI endpoints and native Anthropic are

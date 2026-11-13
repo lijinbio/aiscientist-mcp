@@ -279,7 +279,7 @@ provides-extras = ["test"]
 
 [[package]]
 name = "aiscientist-mcp-scgpt-annotation"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/scgpt-annotation" }
 dependencies = [
     { name = "aiscientist-mcp-common" },

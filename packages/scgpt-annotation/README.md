@@ -91,3 +91,8 @@ and this worker. Compare barcode-aligned predictions and confidence values, labe
 the full species-harmonization record; retain the model/harness versions, GPU and image identity,
 Slurm job ID/state and delivered artifacts. No old application tool is retired based on the
 synthetic tests alone.
+
+Version 0.0.2 supplies a writable Numba cache for read-only container launches with an
+unmounted home. The worker uses its analysis workspace when no operator cache is configured;
+the image also supplies `/tmp/numba` for direct scientific-interpreter use. Inference code,
+model parameters and the scientific dependency pins are unchanged.

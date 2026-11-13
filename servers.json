@@ -156,10 +156,10 @@
       "server": "scgpt-annotation",
       "category": "single-cell",
       "package": "aiscientist-mcp-scgpt-annotation",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "description": "GPU reference-based single-cell annotation using the validated scGPT harness",
       "entry_point": "scgpt-annotation-mcp",
-      "image": "ghcr.io/lijinbio/mcp-scgpt-annotation:0.0.1",
+      "image": "ghcr.io/lijinbio/mcp-scgpt-annotation:0.0.2",
       "path": "packages/scgpt-annotation",
       "tools": [
         {
