@@ -67,13 +67,17 @@ worker and requires the enclosing process/container to remain alive. Slurm/local
 Version 0.0.2 publishes request, active-task and result JSON atomically and rejects linked
 runtime metadata. A completed task with a missing result is reported as failed; cancelled or
 failed jobs cannot retain a successful scientific status.
+Version 0.0.3 also confines worker output links, checks that the submitted package/defaults
+still match, and hides stale prior results while a task is active or retrying. With
+`AISCI_JOB_PREFIX`, it runs `python` inside that command rather than a host virtualenv path;
+the operator may override the executable with `AISCI_JOB_PYTHON`.
 
 | Setting | Meaning |
 | --- | --- |
 | `CELLQC_DATASET` | Default input folder; falls back to `AISCIENTIST_DATASET`. |
 | `CELLQC_READ_ROOTS` | Server-approved input roots separated by the platform path separator (`:` on Linux). Required for explicit paths outside the bound folder. |
 | `AISCI_DATA_DIR` | Writable output root; the server uses its `cellqc/` child. |
-| `AISCI_EXECUTOR`, `AISCI_SLURM`, `AISCI_SLURM_FALLBACK`, `AISCI_JOB_PREFIX` | Shared executor configuration. Default resources: 16 CPUs, 80 GB, 8 hours. |
+| `AISCI_EXECUTOR`, `AISCI_SLURM`, `AISCI_SLURM_FALLBACK`, `AISCI_JOB_PREFIX`, `AISCI_JOB_PYTHON` | Shared executor configuration. Default resources: 16 CPUs, 80 GB, 8 hours. |
 | `CELLQC_CPUS` | CellQC thread count; falls back to `AISCIENTIST_JOB_CPUS`, `SLURM_CPUS_PER_TASK`, then detected CPUs. |
 | `CELLQC_TOOL_CACHE` | Optional persistent tectonic cache root; falls back to `AISCIENTIST_TOOL_CACHE`. Otherwise each job uses its own cache. |
 

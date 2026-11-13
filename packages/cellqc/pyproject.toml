@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-cellqc"
-version = "0.0.2"
+version = "0.0.3"
 description = "CellQC quality control for Cell Ranger deliveries with ambient correction and doublet removal"
 requires-python = ">=3.12,<3.14"
 license = "MIT"

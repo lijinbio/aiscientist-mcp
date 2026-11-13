@@ -6,7 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
-from aiscientist_mcp.cellqc import core, runtime, worker
+from aiscientist_mcp.cellqc import __version__, core, runtime, worker
+from aiscientist_mcp.cellqc.settings import defaults_source
 from aiscientist_mcp.common import jobs
 
 
@@ -27,7 +28,8 @@ def task(tmp_path, delivery, monkeypatch):
             "folders": folders,
             "inputs": runtime.input_identity(folders),
             "arguments": {},
-            "settings": {},
+            "settings": defaults_source(),
+            "version": __version__,
         },
     )
     jobs.write_state(directory, {"state": "RUNNING", "executor": "test"})
@@ -146,3 +148,77 @@ def test_poll_during_real_worker_publication_never_reads_partial_json(task, monk
             future.result(timeout=10)
     assert json.loads((directory / "result.json").read_text()) == output
     assert not list(directory.glob(".result.json.*"))
+
+
+@pytest.mark.parametrize("override", [None, "/opt/science/bin/python"])
+def test_prefix_uses_image_python_not_host_virtualenv(task, monkeypatch, override):
+    ws, _ = task
+    monkeypatch.setenv("AISCI_JOB_PREFIX", "apptainer exec --bind /data /image.sif")
+    if override:
+        monkeypatch.setenv("AISCI_JOB_PYTHON", override)
+    else:
+        monkeypatch.delenv("AISCI_JOB_PYTHON", raising=False)
+    commands = []
+
+    def pending(cfg, cmd, directory, name, extra):
+        commands.append(cmd)
+        jobs.write_state(directory, {"state": "PENDING", "executor": "test"})
+
+    monkeypatch.setattr(jobs, "submit", pending)
+    runtime.submit(ws.name, "", None, {}, False)
+    assert commands[0][0] == (override or "python")
+
+
+@pytest.mark.parametrize("state", ["PENDING", "RUNNING", "REQUEUED", "UNKNOWN"])
+def test_retry_does_not_expose_prior_result(task, state):
+    ws, directory = task
+    jobs.write_json(directory, "result.json", {"status": "error", "cells_after": 123, "error": "old attempt"})
+    jobs.write_state(directory, {"state": state, "executor": "test"})
+    result = runtime.result(ws, directory.name)
+    assert result["state"] == state
+    assert not {"status", "cells_after", "error"}.intersection(result)
+
+
+@pytest.mark.parametrize("key,value", [("version", "0.0.0"), ("settings", {"sha256": "changed"})])
+def test_changed_package_or_defaults_refuse_before_calculation(task, monkeypatch, key, value):
+    _, directory = task
+    request = json.loads((directory / "request.json").read_text())
+    request[key] = value
+    jobs.write_json(directory, "request.json", request)
+    monkeypatch.setattr(core, "run_cellqc", lambda *args: pytest.fail("stale request reached calculation"))
+    with pytest.raises(ValueError, match="changed after submission"):
+        worker.execute(directory)
+
+
+@pytest.mark.parametrize("relative", [".", "work", "artifacts", "work/cellqc", "artifacts/figures"])
+def test_output_link_refused_before_scientific_write(task, tmp_path, monkeypatch, relative):
+    _, directory = task
+    outside = tmp_path / "outside-output"
+    outside.mkdir()
+    target = directory / "output" / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(core, "run_cellqc", lambda *args: pytest.fail("redirected output reached calculation"))
+    with pytest.raises(ValueError, match="symlink"):
+        worker.execute(directory)
+    assert not list(outside.iterdir())
+
+
+def test_retry_accepts_only_real_staged_input_and_internal_fontconfig_links(task, tmp_path):
+    _, directory = task
+    request = json.loads((directory / "request.json").read_text())
+    output = directory / "output"
+    staged = output / "work/cellqc/lnfiles/S1"
+    staged.mkdir(parents=True)
+    source = Path(request["folders"][0]["path"]) / "S1/raw_feature_bc_matrix.h5"
+    (staged / source.name).symlink_to(source)
+    cache = output / "work/cellqc/mouse/cache/fontconfig"
+    cache.mkdir(parents=True)
+    (cache / "font.cache-12").write_text("cache")
+    (cache / "font.cache-9").symlink_to("font.cache-12")
+    worker.checked_output(output, request["folders"])
+    (staged / source.name).unlink()
+    (staged / source.name).symlink_to(tmp_path / "outside")
+    (tmp_path / "outside").write_text("not admitted")
+    with pytest.raises(ValueError, match="permitted"):
+        worker.checked_output(output, request["folders"])

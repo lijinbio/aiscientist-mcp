@@ -20,7 +20,7 @@ ACTIVE = {"PENDING", "RUNNING", "CONFIGURING", "COMPLETING", "SUSPENDED", "UNKNO
 def workspace(analysis_id: str) -> Path:
     if analysis_id == ".":
         raise ValueError("invalid analysis_id")
-    root = Path(os.environ.get("AISCI_DATA_DIR", "./data")).resolve() / "cellqc"
+    root = Path(os.environ.get("AISCI_DATA_DIR", "./data")).expanduser().resolve() / "cellqc"
     if root.is_symlink():
         raise ValueError("server workspace escapes the server data directory")
     root.mkdir(parents=True, exist_ok=True)
@@ -114,7 +114,7 @@ def result(ws: Path, task_id: str) -> dict:
         **{key: state[key] for key in ("state", "job_id", "error", "note", "elapsed_s") if key in state},
     }
     result_file = jobs.managed_file(directory, "result.json")
-    if result_file.is_file():
+    if result_file.is_file() and state.get("state") not in ACTIVE:
         payload = json.loads(result_file.read_text()) | payload
     if state.get("state") == "COMPLETED" and not result_file.is_file():
         payload.update(state="FAILED", status="error", error="completed task result is missing; submit a new task")
@@ -171,9 +171,11 @@ def submit(analysis_id: str, dataset: str, dataset_paths: list[str] | None, args
         jobs.write_json(directory, "request.json", request)
         jobs.write_json(ws, "active.json", {"task_id": task_id, "signature": signature})
         try:
+            executor = job_settings()
+            python = os.environ.get("AISCI_JOB_PYTHON") or ("python" if executor.prefix else sys.executable)
             jobs.submit(
-                job_settings(),
-                [sys.executable, "-m", "aiscientist_mcp.cellqc.worker", str(directory)],
+                executor,
+                [python, "-m", "aiscientist_mcp.cellqc.worker", str(directory)],
                 directory,
                 safe_id(f"cellqc-{analysis_id}"[:60]),
                 extra={"task_id": task_id},
