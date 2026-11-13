@@ -6,26 +6,7 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 
 ## [Unreleased]
 
-### Fixed
-
-- `atlas-expression-exploration`: `get_summary.level` exposes its three supported values in the
-  MCP input schema and rejects unsupported levels before reading the server settings or query data.
-- `atlas-expression-exploration` 0.0.4: stream full-transcriptome library totals in bounded row
-  chunks, retaining only query genes and necessary metadata. This avoids loading the full
-  atlas, unrelated layers and raw matrices for a small gene query. Missing observation
-  columns now name the required server setting before matrix reading begins.
-
 ### Added
-
-- Seven standalone server packages (0.0.1): `scrna-analysis` (11 analysis tools), `cellqc`,
-  `literature` (4 tools), `variant-annotation`, `phenotype-diagnosis` (3 tools),
-  `scgpt-annotation`, and `data-utilities` (2 tools), each with a typed job-status tool,
-  independent installation, domain descriptions, regression tests and container definition.
-- `common` 0.0.3: confined task workspaces, immutable attempt history, input/configuration
-  identities, explicit Slurm/local/inline execution, shared Cell Ranger readers, configured
-  model transport, and opt-in strict validation before the MCP SDK can coerce or discard fields.
-- Install and container CI covers the new server entry points. Workspace tests use importlib
-  collection so separate packages can retain their original test names.
 
 - Community and maintenance files following the AiScientist skills registry: code of conduct,
   security policy, citation, editor and pre-commit configuration, CODEOWNERS, Dependabot, issue
@@ -35,6 +16,46 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
   pushes the image and publishes a GitHub release.
 - A README catalog grouped by category, generated with `servers.json` by `index_servers.py`
   (`--check` in CI).
+
+## Analysis servers 0.0.1 - 2026-11-12
+
+### Added
+
+- First independent releases of `scrna-analysis`, `cellqc`, `literature`,
+  `variant-annotation`, `phenotype-diagnosis`, `scgpt-annotation` and `data-utilities`.
+  Their 23 original calculations have typed MCP schemas, domain documentation,
+  bounded responses with full disk evidence, job-status tools and separate containers.
+- Install and container CI covers every entry point. Workspace tests use importlib
+  collection so packages retain their original regression test names.
+- Phenotype diagnosis calls the bundled literature peer through MCP; PaperQA uses a
+  private copy of the prebuilt index so a read-only shared corpus can be searched.
+- Real-data acceptance records numerical agreement and its limits in server READMEs.
+  CellQC's applied matrices match; comparison-only DecontX diagnostics are not claimed
+  to reproduce exactly. These releases do not remove the application's original tools.
+
+## common 0.0.3 - 2026-11-12
+
+### Added
+
+- Confined task workspaces, immutable attempt history, input/configuration identity,
+  shared Cell Ranger readers, explicit model transport and opt-in strict MCP validation.
+- Bounded wire responses retain complete result files and mark omitted previews.
+
+### Fixed
+
+- Job JSON is published atomically, concurrent status polls cannot duplicate Slurm
+  retries, and managed metadata cannot follow symlinks outside its workspace.
+- Local processes are identified on macOS as well as Linux. Interrupted inline callers
+  and cancelled allocations no longer remain RUNNING when their owner can be checked.
+
+## atlas-expression-exploration 0.0.4 - 2026-11-12
+
+### Fixed
+
+- `get_summary.level` exposes and validates the three supported values in its MCP schema.
+- Stream full-transcriptome library totals from dense, CSR or CSC storage, retaining only
+  query genes and needed metadata. Unrelated layers/raw data are not loaded. Missing
+  observation columns identify the required setting before reading the expression matrix.
 
 ## visionkb-kg 0.0.1 - Unreleased
 
