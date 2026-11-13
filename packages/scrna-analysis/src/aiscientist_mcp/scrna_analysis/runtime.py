@@ -384,8 +384,43 @@ def execute(analysis_id, task_id):
             imported[source.name] = _identity(source)
         if imported:
             _json(manifest, imported)
+        compatibility = []
+        from .input_compatibility import normalize_h5ad
+
+        # Caller-owned datasets remain read-only. Work checkpoints are already
+        # private imports or our own outputs, and retain their selected filenames.
+        if dataset and Path(dataset).suffix.lower() == ".h5ad" and name == "run_scanpy_qc" and not args.get("input"):
+            private = task / "input"
+            private.mkdir(exist_ok=True)
+            staged = _metadata(private / Path(dataset).name)
+            changes = normalize_h5ad(Path(dataset), staged)
+            if changes:
+                compatibility.append({"source": _identity(dataset), "staged": str(staged), "changes": changes})
+                dataset_for_tool = str(staged)
+            else:
+                dataset_for_tool = dataset
+        else:
+            dataset_for_tool = dataset
+        selected = _input_identity(ws, name, args, dataset)
+        checkpoints = {
+            Path(item["path"])
+            for item in selected
+            if Path(item["path"]).suffix.lower() == ".h5ad" and Path(item["path"]).is_relative_to(ws)
+        }
+        for checkpoint in sorted(checkpoints):
+            original_identity = _identity(checkpoint)
+            changes = normalize_h5ad(checkpoint, checkpoint)
+            if changes:
+                compatibility.append({"source": original_identity, "staged": str(checkpoint), "changes": changes})
+        compatibility_path = ""
+        if compatibility:
+            data = ws / "artifacts" / "data"
+            data.mkdir(exist_ok=True)
+            report = data / f"input_compatibility_{task_id}.json"
+            _json(report, {"expression_values_changed": False, "inputs": compatibility})
+            compatibility_path = str(report)
         module = importlib.import_module(f"aiscientist_mcp.scrna_analysis.{name}.tool")
-        ctx = SimpleNamespace(workspace=ws, decisions={"dataset_path": dataset})
+        ctx = SimpleNamespace(workspace=ws, decisions={"dataset_path": dataset_for_tool})
         result = getattr(module, name)(args, ctx)
         checkpoint = str(result.get("checkpoint") or "")
         checkpoint_name = Path(checkpoint)
@@ -401,6 +436,8 @@ def execute(analysis_id, task_id):
         if candidate.is_file() and candidate.resolve().is_relative_to(ws.resolve()):
             checkpoint_path = str(candidate.resolve())
         result = result | {"artifact_root": str(ws / "artifacts"), "checkpoint_path": checkpoint_path}
+        if compatibility_path:
+            result["input_compatibility_path"] = compatibility_path
         _json(task / "result.json", result)
         if result.get("status") != "ok":
             raise ValueError(result.get("error") or result.get("note") or result.get("status", "analysis failed"))

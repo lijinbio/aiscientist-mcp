@@ -42,6 +42,7 @@ No arbitrarily supplied result path is copied back to a client.
 | `SCRNA_GENESETS_DIR` | Read-only local `.gmt` libraries for enrichment. `AISCIENTIST_GENESETS_DIR` is also accepted. No gene libraries are downloaded automatically. |
 | `AISCI_EXECUTOR` | `slurm` (default), `local`, or `inline`; shared common job executors. |
 | `AISCI_SLURM`, `AISCI_SLURM_FALLBACK` | Submission and preemption fallback resources. Defaults: 4 CPUs, 16 GB, 4 hours. |
+| `AISCI_JOB_PYTHON` | Trusted scientific worker executable. The image defaults to `/opt/aiscientist-mcp/worker-python`; a host-side container prefix must explicitly select this in-image launcher. |
 | `AISCI_JOB_PREFIX` | Trusted container launcher prepended to the worker command, e.g. an Apptainer invocation with approved mounts. |
 
 A dataset binding cannot be changed halfway through an analysis. Task identity incorporates
@@ -71,8 +72,14 @@ uv run aiscientist-mcp --server scrna-analysis-mcp call run_scanpy_qc \
 ```
 
 Build the image from the repository root with
-`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.2 .`.
-The image installs this package and its dependencies from the workspace's frozen lock.
+`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.4 .`.
+The image separates MCP Python 3.13 from scientific Python 3.11.15. Its scientific lock
+contains 63 original `analysis.sif` / `analysis-pydeps` packages, checked against the deployed
+distribution RECORDs, plus 12 packages for optional Harmony/scikit-image and worker JSON
+Schema validation. Exact archive hashes and package-file provenance are committed under
+`containers/scrna-analysis/`. The build verifies installed file hashes; no original scientific
+package is upgraded. MCP dependencies follow `uv.lock` in their own interpreter. Numba and
+Matplotlib caches are private to each worker attempt, including inside read-only SIFs.
 A deployment must pin the released image digest; this source package does not invent one.
 
 ## Validation and compatibility
@@ -92,7 +99,32 @@ AISCI_LEGACY_SCRNA_ROOT=/path/to/AiScientist/src \
 The port explicitly copies ComBat's corrected matrix before in-place scaling: recent Scanpy
 can return a read-only array. This changes mutability, not the numeric correction. Harmony is
 bounded to its pre-1.0 API because the current Scanpy integration expects that result layout.
+New AnnData nullable-string metadata is converted only in a private dataset copy or imported
+checkpoint. The HDF5 conversion preserves expression datasets, labels and missing positions;
+its provenance is exported via `input_compatibility_path`. Caller files stay unchanged.
+External/soft HDF5 metadata links are refused. No global AnnData setting is changed.
 Scientific limitations and refusal conditions are documented with each tool below.
+
+The released `scrna-analysis-v0.0.3` image with common 0.0.4 passed native HPC3 acceptance
+in Slurm job `59536842` (standard partition, 3m45s). On the public 480-cell, 1,550-gene HECA
+fixture, all eleven tools matched the unchanged original code running in the same new scientific
+environment at the recorded test parameters:
+returned scientific results, exported CSV values and five AnnData checkpoints (including X,
+obs, var, layers and raw). The installed-image test also passed cache reuse, distinct rerun and
+failed-attempt history, status and strict argument checks. This is algorithm-port parity, not a comparison with the old production `analysis.sif`
+dependency environment. Old-environment and website bridge acceptance remain separate gates
+before retiring the original tools.
+
+A subsequent actual old-environment comparison found marker-score and first-pass label
+differences with the newer dependencies; a direct same-checkpoint comparison confirmed the
+marker difference, while doublet detection, clustering and DE passed. Version 0.0.4 therefore
+freezes the deployed scientific stack. The original environment lacks Harmony: explicit
+Harmony requests are tested as added capability, not claimed as an old-runtime success.
+The 0.0.4 local Docker smoke restores marker result/CSV/AnnData parity against the actual
+old-runtime checkpoint at the unchanged tolerances, and executes QC on the original modern
+AnnData input without modifying it. Default CLI/schema listing, installed archive/file
+verification and private worker caches also pass. Final released 0.0.4 HPC acceptance is
+pending; local build checks do not substitute for it.
 
 ## Scientific tool reference
 

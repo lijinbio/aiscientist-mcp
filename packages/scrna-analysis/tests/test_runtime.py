@@ -126,6 +126,22 @@ def test_analysis_lock_excludes_a_second_writer(settings):
         pytest.fail("another writer acquired the lock")
 
 
+def test_worker_caches_are_private_attempt_directories(settings, monkeypatch):
+    from aiscientist_mcp.scrna_analysis.worker import _configure_caches
+
+    monkeypatch.setenv("NUMBA_CACHE_DIR", "/unwritable/shared-numba")
+    monkeypatch.setenv("MPLCONFIGDIR", "/unwritable/shared-matplotlib")
+    task = runtime.workspace("cache") / "jobs" / "attempt-one"
+    task.mkdir()
+    _configure_caches(task)
+    assert os.environ["NUMBA_CACHE_DIR"] == str(task / "numba-cache")
+    assert os.environ["MPLCONFIGDIR"] == str(task / "matplotlib-cache")
+    (task / "numba-cache").rmdir()
+    (task / "numba-cache").symlink_to(settings)
+    with pytest.raises(ValueError, match="private task"):
+        _configure_caches(task)
+
+
 def test_checkpoint_handoff_is_operator_configured_and_never_overwrites(settings, monkeypatch):
     handoff = settings / "handoff"
     handoff.mkdir()
