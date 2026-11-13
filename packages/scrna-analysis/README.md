@@ -72,7 +72,7 @@ uv run aiscientist-mcp --server scrna-analysis-mcp call run_scanpy_qc \
 ```
 
 Build the image from the repository root with
-`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.5 .`.
+`docker build --platform linux/amd64 -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.5 .`.
 The image separates MCP Python 3.13 from scientific Python 3.11.15. Its scientific lock
 contains 63 original `analysis.sif` / `analysis-pydeps` packages, checked against the deployed
 distribution RECORDs, plus 12 packages for optional Harmony/scikit-image and worker JSON
@@ -131,8 +131,22 @@ the selection without claiming a missing dependency.
 The 0.0.4 local Docker smoke restores marker result/CSV/AnnData parity against the actual
 old-runtime checkpoint at the unchanged tolerances, and executes QC on the original modern
 AnnData input without modifying it. Default CLI/schema listing, installed archive/file
-verification and private worker caches also pass. Final released 0.0.5 HPC acceptance is
-pending; local build checks do not substitute for it.
+verification and private worker caches also pass. The final released `scrna-analysis-v0.0.5` SIF passed HPC3 job `59540145` (5m04s): all
+11 tools match the unchanged original code in the frozen scientific environment. An
+independent fresh old production-image run (`59540080`) matches the ten originally
+supported calls, CSVs and all AnnData X/obs/var/layers/raw/obsm/obsp/varm/varp values
+(38 checks, unchanged `rtol=1e-6`, `atol=1e-8`). The old image lacks Harmony, so explicit
+Harmony is separately verified against original code in the final environment. Both omitted
+and explicit `auto` requests match the actual old default-ComBat run (`59539876`), including
+the integration embedding. Only QC's displayed private-copy basename and the obsolete
+missing-Harmony note differ as described above. Cache reuse, retained rerun/failure history,
+status and strict argument checks pass; the largest tool response is 9,719 bytes. The server
+runs from the installed image without a source overlay or operator cache override.
+
+Release identity: OCI `sha256:6bf03b30e2c9a3af6043eef1751518494ae59b728cb175faf003ecab697b7afa`,
+converted SIF `sha256:7fa796929464cb9d769f14529ee7ddc51667aa289219c50d0fa3c9642d4d3341`.
+Default CLI, full schema and all 75 package / 13,117 file checks passed in staging job
+`59540097`. Website bridge acceptance remains a separate gate before legacy-tool retirement.
 
 ## Scientific tool reference
 
