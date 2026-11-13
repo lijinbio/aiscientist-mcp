@@ -24,6 +24,7 @@ from jsonschema import Draft202012Validator
 from . import SERVER_NAME, __version__
 
 SPECS = json.loads(Path(__file__).with_name("tool_specs.json").read_text())
+INTEGRATION_POLICY = "deployed-auto-combat-v1"
 TERMINAL = {
     "COMPLETED",
     "FAILED",
@@ -70,6 +71,27 @@ def _settings():
     return {
         "genesets": os.environ.get("SCRNA_GENESETS_DIR") or os.environ.get("AISCIENTIST_GENESETS_DIR", ""),
         "checkpoint_root": os.environ.get("SCRNA_CHECKPOINT_ROOT", ""),
+        "integration_policy": INTEGRATION_POLICY,
+    }
+
+
+def _execution_args(name, args):
+    """Preserve the deployed default even though explicit Harmony is now bundled.
+
+    The original request remains unchanged in metadata and cache identity. This
+    policy belongs to the service adapter; the extracted scientific functions
+    still receive an ordinary supported method and report what actually ran.
+    """
+    if name != "run_integration":
+        return args, None
+    requested = args.get("method", "auto")
+    effective = "combat" if requested == "auto" else requested
+    return args | {"method": effective}, {
+        "policy": INTEGRATION_POLICY,
+        "requested_method": requested,
+        "method_argument_supplied": "method" in args,
+        "effective_method": effective,
+        "reason": "auto preserves deployed ComBat; Harmony requires explicit method='harmony'",
     }
 
 
@@ -421,7 +443,10 @@ def execute(analysis_id, task_id):
             compatibility_path = str(report)
         module = importlib.import_module(f"aiscientist_mcp.scrna_analysis.{name}.tool")
         ctx = SimpleNamespace(workspace=ws, decisions={"dataset_path": dataset_for_tool})
-        result = getattr(module, name)(args, ctx)
+        execution_args, integration_policy = _execution_args(name, args)
+        result = getattr(module, name)(execution_args, ctx)
+        if integration_policy:
+            result["integration_policy"] = integration_policy
         checkpoint = str(result.get("checkpoint") or "")
         checkpoint_name = Path(checkpoint)
         candidate = (

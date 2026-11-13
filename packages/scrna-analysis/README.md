@@ -72,7 +72,7 @@ uv run aiscientist-mcp --server scrna-analysis-mcp call run_scanpy_qc \
 ```
 
 Build the image from the repository root with
-`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.4 .`.
+`docker build -f containers/scrna-analysis/Dockerfile -t mcp-scrna-analysis:0.0.5 .`.
 The image separates MCP Python 3.13 from scientific Python 3.11.15. Its scientific lock
 contains 63 original `analysis.sif` / `analysis-pydeps` packages, checked against the deployed
 distribution RECORDs, plus 12 packages for optional Harmony/scikit-image and worker JSON
@@ -120,10 +120,18 @@ differences with the newer dependencies; a direct same-checkpoint comparison con
 marker difference, while doublet detection, clustering and DE passed. Version 0.0.4 therefore
 freezes the deployed scientific stack. The original environment lacks Harmony: explicit
 Harmony requests are tested as added capability, not claimed as an old-runtime success.
+Version 0.0.5 additionally preserves the deployed `auto` selection of ComBat through an
+explicit adapter policy, independently of installed optional packages. It retains the
+requested arguments and records the effective selection in `integration_policy`; no
+scientific function or numeric threshold is changed. A direct local-image comparison against
+the actual old default-auto run (HPC3 job `59539876`) matches ComBat scientific fields, CSV
+and all AnnData matrix/embedding slots at the original tolerances. The obsolete
+missing-Harmony fallback note is intentionally absent; the new policy record explains
+the selection without claiming a missing dependency.
 The 0.0.4 local Docker smoke restores marker result/CSV/AnnData parity against the actual
 old-runtime checkpoint at the unchanged tolerances, and executes QC on the original modern
 AnnData input without modifying it. Default CLI/schema listing, installed archive/file
-verification and private worker caches also pass. Final released 0.0.4 HPC acceptance is
+verification and private worker caches also pass. Final released 0.0.5 HPC acceptance is
 pending; local build checks do not substitute for it.
 
 ## Scientific tool reference
@@ -412,7 +420,7 @@ Runs Scrublet on the raw counts after QC and before clustering. Two cells in one
 
 # run_integration
 
-Removes systematic differences between samples or batches so that cells group by cell type rather than by library. It uses Harmony when harmonypy is installed and ComBat (bundled with scanpy) otherwise, and measures the batch silhouette before and after.
+Removes systematic differences between samples or batches so that cells group by cell type rather than by library. Omitted `method` or `auto` uses ComBat to preserve the deployed default. Set `method="harmony"` explicitly to use bundled Harmony. It measures the batch silhouette before and after. The request is retained unchanged; `integration_policy` records the requested and effective method, while `method_used` reports the algorithm that actually ran. The original missing-Harmony fallback note is not reproduced because Harmony is available when explicitly selected.
 
 ## When the agent uses it
 
@@ -424,7 +432,7 @@ Removes systematic differences between samples or batches so that cells group by
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
 | `batch_key` | string | — |  |
-| `method` | string (`auto`, `harmony`, `combat`) | — |  |
+| `method` | string (`auto`, `harmony`, `combat`) | — | omitted/auto uses ComBat; Harmony requires explicit selection |
 | `n_pcs` | integer | — |  |
 | `input` | string | `''` | an .h5ad to read INSTEAD of the checkpoint the previous tool wrote — e.g. one a run_code step saved in AISCIENTIST_WORK. A file name or a path inside this run's work/ or artifacts/ directory; nothing outside the run is read. Empty = the usual checkpoint. To feed a variant of an upstream result to the next tool, save it under a NEW name and pass it here — never overwrite a tool's checkpoint. |
 <!-- /generated:parameters -->

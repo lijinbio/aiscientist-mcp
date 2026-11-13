@@ -449,7 +449,13 @@ def run_doublet_detection(
 @analysis_tool
 def run_integration(
     batch_key: Annotated[str, Field(strict=True, json_schema_extra=_omit_default)] = None,
-    method: Annotated[Literal["auto", "harmony", "combat"], Field(json_schema_extra=_omit_default)] = None,
+    method: Annotated[
+        Literal["auto", "harmony", "combat"],
+        Field(
+            description="Omitted or auto preserves the deployed ComBat default. Set harmony explicitly to use bundled Harmony. The result records requested/effective methods and method_used.",
+            json_schema_extra=_omit_default,
+        ),
+    ] = None,
     n_pcs: Annotated[int, Field(strict=True, json_schema_extra=_omit_default)] = None,
     input: Annotated[
         str,

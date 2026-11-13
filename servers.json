@@ -176,10 +176,10 @@
       "server": "scrna-analysis",
       "category": "single-cell",
       "package": "aiscientist-mcp-scrna-analysis",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "description": "Single-cell RNA analysis with reproducible QC, clustering, differential expression and annotation",
       "entry_point": "scrna-analysis-mcp",
-      "image": "ghcr.io/lijinbio/mcp-scrna-analysis:0.0.4",
+      "image": "ghcr.io/lijinbio/mcp-scrna-analysis:0.0.5",
       "path": "packages/scrna-analysis",
       "tools": [
         {
@@ -212,7 +212,7 @@
         },
         {
           "name": "run_integration",
-          "description": "Correct sample/donor/batch effects before clustering. REQUIRED whenever the object holds more than one sample: without it the cells cluster by donor and every cell-type label downstream is really a donor label, with no visible symptom. `batch_key` names the obs column. Uses Harmony when harmonypy is installed and falls back to ComBat (bundled with scanpy); the method that ACTUALLY ran is returned as `method_used`. Writes adata_integrated.h5ad and reports batch silhouette before/after \u2014 it must DROP, and a warning is returned if it does not."
+          "description": "Correct sample/donor/batch effects before clustering. REQUIRED whenever the object holds more than one sample: without it the cells cluster by donor and every cell-type label downstream is really a donor label, with no visible symptom. `batch_key` names the obs column. Omitted method or auto preserves the deployed ComBat default; Harmony is available only when explicitly requested; the method that ACTUALLY ran is returned as `method_used`. Writes adata_integrated.h5ad and reports batch silhouette before/after \u2014 it must DROP, and a warning is returned if it does not."
         },
         {
           "name": "run_pseudobulk_de",
