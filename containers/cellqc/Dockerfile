@@ -28,6 +28,9 @@ RUN /opt/mcp-env/bin/python -m pip wheel --no-deps --no-build-isolation --wheel-
     && /opt/conda/bin/cellqc --help > /dev/null \
     && /opt/mcp-env/bin/python -c "from aiscientist_mcp.cellqc.server import server" \
     && rm -rf /tmp/mcp-wheels
+# The inherited entrypoint must not reactivate base and shadow the MCP CLI.
+# Scientific subprocesses select base explicitly through worker-python.
 ENV PATH=/opt/mcp-env/bin:/opt/conda/bin:$PATH \
+    MAMBA_SKIP_ACTIVATE=1 \
     AISCI_JOB_PYTHON=/opt/aiscientist-mcp/worker-python
 CMD ["/opt/mcp-env/bin/cellqc-mcp"]

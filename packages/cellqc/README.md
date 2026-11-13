@@ -57,6 +57,8 @@ export AISCI_EXECUTOR=slurm
 export AISCI_SLURM='--partition=<partition> --account=<account> --cpus-per-task=16 --mem=80G --time=08:00:00'
 # If jobs enter an image, configure its shared input/output bindings here:
 export AISCI_JOB_PREFIX='apptainer exec --bind /path/to /path/to/cellqc.sif'
+# When the server itself runs outside this image, select its scientific worker explicitly:
+export AISCI_JOB_PYTHON=/opt/aiscientist-mcp/worker-python
 aiscientist-mcp --server cellqc-mcp call run_cellqc '{"analysis_id":"qc-01","max_pct_mt":5.0}'
 aiscientist-mcp --server cellqc-mcp call cellqc_job_status '{"analysis_id":"qc-01","task_id":"<returned-task-id>"}'
 ```
