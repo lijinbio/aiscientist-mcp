@@ -103,3 +103,12 @@ GPU models, labels remained identical but 35 confidence values differed by up to
 the preprocessed matrices were identical. Preserve the GPU model when comparing numerical
 confidence baselines. This observation does not change inference settings or relax the
 old-versus-new comparison tolerance (`1e-6`).
+
+The released `scgpt-annotation-v0.0.3` image with common 0.0.4 passed native HPC3 GPU
+acceptance in Slurm job `59536819` (V100, 1m41s). The real model and read-only reviewed harness
+processed the original public 480-cell, 36,601-gene HECA query. All 480 labels and confidences
+matched both the frozen original predictions and a fresh unchanged original wrapper in the
+same image, with maximum confidence difference 0.0. This used the installed MCP package,
+no source overlay and no operator Numba-cache override; the input-index compatibility path
+was exercised without changing expression values. The native call took 42.5s. Website bridge
+acceptance remains separate from this image and scientific regression.

@@ -45,3 +45,14 @@ The image installs Graphviz and uses the workspace lock. Run `uv run pytest pack
 for unit/protocol tests. `AISCI_LEGACY_SOURCE=/path/to/AiScientist` enables actual-source parity:
 original/new inspection objects and DOT are equal, and PNG bytes are compared using the same
 real Graphviz binary. These checks do not replace deployment testing in the target environment.
+
+The released `data-utilities-v0.0.2` image with common 0.0.4 passed native HPC3 acceptance
+in Slurm job `59536142` (standard partition, 30s). Inspection of the real public HECA
+265,767-cell by 36,601-gene HDF5 dataset matched the original code in the new image; rendering the test
+workflow with the same new-image Graphviz 2.42.4 binary produced identical PNG bytes. A separate check ran the unchanged original renderer with the production website
+interpreter and host Graphviz (also 2.42.4); its 587 × 539 PNG was byte-identical to this final
+image output (SHA256 `ed60002b1764050f787d69c9e09f3e691c0992f091ca748d9b831964223edc36`).
+The earlier source-staged HPC host used Graphviz 2.44.0, not the website runtime. Tool and status responses
+stayed below 24 KB, including a long-line input whose complete content was preserved in its
+artifact. This installed-image test used deterministic inspection; model-backed descriptions
+and website bridge acceptance are separate checks.
