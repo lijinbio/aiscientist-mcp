@@ -77,7 +77,18 @@ analysis namespace. To request a phenotype-only ranking, use `run_lirical` or
 literature data/model settings and mounts references read-only; it never accepts
 an executable override from a tool call. `diagnose_disease` binds the trusted
 session model to the peer's `LITERATURE_MODEL_*` settings, while HPO mapping uses
-`PHENOTYPE_MODEL_*`. A truncated peer evidence response is rejected for grading.
+`PHENOTYPE_MODEL_*`. A truncated peer evidence response is never graded directly. Version 0.0.4
+reads the literature peer's bounded `literature://results/...` MCP resource pages,
+checks task identity, size, contiguous offsets and SHA-256, then grades the complete
+JSON. Missing, oversized or inconsistent evidence remains an explicit ungraded
+error. No peer workspace is read directly, even in the bundled container.
+
+Website run 36dba619cd19 exercised 0.0.3 with the selected Haiku model: HPO mapping
+and LIRICAL completed, but the literature peer's preview was truncated, so the
+8,621-row differential remained LIRICAL-only. This is failure evidence for the
+integration, not successful literature adjudication. The 0.0.4 resource repair is
+covered by real stdio tests with large synthetic evidence; released-image and
+website model acceptance must be recorded separately.
 
 ## Real HPC validation (2026-11-12)
 

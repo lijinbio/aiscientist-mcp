@@ -96,10 +96,10 @@
       "server": "literature",
       "category": "literature",
       "package": "aiscientist-mcp-literature",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "description": "MCP server: biomedical literature retrieval and grounded corpus analysis",
       "entry_point": "literature-mcp",
-      "image": "ghcr.io/lijinbio/mcp-literature:0.0.3",
+      "image": "ghcr.io/lijinbio/mcp-literature:0.0.4",
       "path": "packages/literature",
       "tools": [
         {
@@ -128,10 +128,10 @@
       "server": "phenotype-diagnosis",
       "category": "annotation",
       "package": "aiscientist-mcp-phenotype-diagnosis",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "description": "Grounded phenotype mapping and evidence-backed differential diagnosis",
       "entry_point": "phenotype-diagnosis-mcp",
-      "image": "ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.3",
+      "image": "ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.4",
       "path": "packages/phenotype-diagnosis",
       "tools": [
         {

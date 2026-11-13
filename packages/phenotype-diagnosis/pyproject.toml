@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-phenotype-diagnosis"
-version = "0.0.3"
+version = "0.0.4"
 description = "Grounded phenotype mapping and evidence-backed differential diagnosis"
 requires-python = ">=3.11"
 license = "MIT"

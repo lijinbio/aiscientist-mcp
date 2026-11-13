@@ -211,3 +211,23 @@ Qwen thinking controls. Strict public OpenAI endpoints and native Anthropic are
 not established by these tests. Existing guarded gateway BYOK paths remain in
 place. Zero values in the unpriced model's cost/pilot fields are not billing
 measurements or proof that no model calls occurred.
+
+
+## Complete results over MCP resources (0.0.4)
+
+Large tool/status replies retain bounded previews and `response_omitted=true`.
+For a completed task they also expose `full_result_uri`, starting at
+`literature://results/<analysis_id>/<task_id>/0`. Standard MCP `resources/read`
+returns JSON with an 8192-byte base64 page, byte offset, `total_bytes`, SHA-256 and
+`next_offset` (null at EOF). Verify every page's task identity, stable size/hash,
+contiguous offsets and final checksum before interpreting the complete JSON.
+The resource admits only the task's persisted terminal result, never arbitrary
+paths; reading it starts no analysis or model request. Results over 32 MiB are
+refused explicitly. Both tools and resource pages remain bounded on the wire.
+
+The website phenotype acceptance exposed a real integration gap in 0.0.3:
+its peer correctly refused a truncated literature preview but had no protocol
+route to the complete evidence. Version 0.0.4 adds that route without changing
+retrieval, model selection or scientific scoring. Local real MCP protocol tests
+cover large synthetic evidence and corrupt/missing pages; final released-image
+and selected-session website acceptance are separate gates.

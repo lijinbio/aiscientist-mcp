@@ -40,7 +40,7 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
-| [`phenotype-diagnosis`](packages/phenotype-diagnosis) | 0.0.3 | `map_phenotype_to_hpo`, `run_lirical`, `diagnose_disease`, `phenotype_job_status` | `ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.3` |
+| [`phenotype-diagnosis`](packages/phenotype-diagnosis) | 0.0.4 | `map_phenotype_to_hpo`, `run_lirical`, `diagnose_disease`, `phenotype_job_status` | `ghcr.io/lijinbio/mcp-phenotype-diagnosis:0.0.4` |
 
 ### knowledge-graph
 
@@ -52,7 +52,7 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
-| [`literature`](packages/literature) | 0.0.3 | `literature_search`, `search_corpus`, `deep_literature`, `extract_haploinsufficient_genes`, `literature_job_status` | `ghcr.io/lijinbio/mcp-literature:0.0.3` |
+| [`literature`](packages/literature) | 0.0.4 | `literature_search`, `search_corpus`, `deep_literature`, `extract_haploinsufficient_genes`, `literature_job_status` | `ghcr.io/lijinbio/mcp-literature:0.0.4` |
 
 ### single-cell
 

@@ -131,6 +131,20 @@ def literature_job_status(analysis_id: str, task_id: str) -> dict[str, Any]:
             raise ToolError(str(exc)) from None
 
 
+@server.resource(
+    "literature://results/{analysis_id}/{task_id}/{offset}",
+    mime_type="application/json",
+    description="Read a completed task's full JSON evidence in 8192-byte base64 pages. "
+    "Start at offset 0; validate total_bytes and sha256, then follow next_offset. "
+    "No analysis or model call is started. Each page is bounded; tool responses remain previews.",
+)
+def complete_result(analysis_id: str, task_id: str, offset: str) -> str:
+    from .result_resource import result_chunk
+
+    with quiet():
+        return result_chunk(analysis_id, task_id, offset)
+
+
 def main():
     run_stdio(server)
 

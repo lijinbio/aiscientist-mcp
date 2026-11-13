@@ -223,7 +223,7 @@ provides-extras = ["test"]
 
 [[package]]
 name = "aiscientist-mcp-literature"
-version = "0.0.3"
+version = "0.0.4"
 source = { editable = "packages/literature" }
 dependencies = [
     { name = "aiscientist-mcp-common" },
@@ -257,7 +257,7 @@ provides-extras = ["test", "full"]
 
 [[package]]
 name = "aiscientist-mcp-phenotype-diagnosis"
-version = "0.0.3"
+version = "0.0.4"
 source = { editable = "packages/phenotype-diagnosis" }
 dependencies = [
     { name = "aiscientist-mcp-common" },

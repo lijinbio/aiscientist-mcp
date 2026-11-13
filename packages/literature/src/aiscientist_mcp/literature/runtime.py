@@ -154,7 +154,12 @@ def response(ws, analysis_id, task_id):
         }
         | {key: state[key] for key in ("error", "elapsed_s", "note") if key in state}
     )
-    return bounded_result(output, full_result=result_file)
+    preview = bounded_result(output, full_result=result_file)
+    if preview.get("response_omitted") and state.get("state") == "COMPLETED":
+        from .result_resource import result_uri
+
+        preview["full_result_uri"] = result_uri(analysis_id, task_id)
+    return preview
 
 
 def submit(tool, args, analysis_id="default", rerun=False):

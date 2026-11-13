@@ -239,6 +239,41 @@ if __name__ == "__main__": server.run("stdio")
     assert not (tmp_path / "outputs" / "literature").exists()
 
 
+def test_real_stdio_large_literature_resource_is_complete_before_grading(tmp_path, monkeypatch):
+    fake = tmp_path / "large_peer.py"
+    fake.write_text("""
+import base64, hashlib, json
+from mcp.server import MCPServer
+from typing import Any
+server=MCPServer("synthetic-large-literature")
+DATA=json.dumps({"status":"ok", "answer":"Independent families and knockout support. STRONG.",
+ "contexts":[{"citation":"A PMID: 10508521", "summary":"12 unrelated families " * 700},
+             {"citation":"B PMID: 12915482", "summary":"knockout mouse model " * 700}]}).encode()
+@server.tool(structured_output=True)
+def deep_literature(question: str, analysis_id: str) -> dict[str, Any]:
+    return {"state":"COMPLETED", "task_id":"large-task", "response_omitted":True,
+            "full_result_uri":f"literature://results/{analysis_id}/large-task/0"}
+@server.resource("literature://results/{analysis_id}/{task_id}/{offset}")
+def page(analysis_id: str, task_id: str, offset: str) -> str:
+    start=int(offset); chunk=DATA[start:start+8192]; end=start+len(chunk)
+    return json.dumps({"analysis_id":analysis_id,"task_id":task_id,"offset":start,
+      "total_bytes":len(DATA),"sha256":hashlib.sha256(DATA).hexdigest(),"encoding":"base64",
+      "data":base64.b64encode(chunk).decode(),"next_offset":end if end<len(DATA) else None})
+if __name__ == "__main__": server.run("stdio")
+""")
+    monkeypatch.setenv("PHENOTYPE_LITERATURE_COMMAND", f"{shlex.quote(sys.executable)} {shlex.quote(str(fake))}")
+    result = cli(
+        "diagnose_disease",
+        {"hpo_terms": ["HP:0000662"], "candidate_genes": ["CRB1"], "analysis_id": "complete-evidence"},
+    )
+    if result.get("response_omitted"):
+        result = json.loads(Path(result["full_result"]).read_text())
+    assert result["status"] == "ok" and result["mode"] == "literature_only"
+    assert result["top"]["evidence_tier"] == "STRONG"
+    assert {e["pmid"] for e in result["literature"][0]["evidence"]} == {"10508521", "12915482"}
+    assert not (tmp_path / "outputs" / "literature").exists()
+
+
 def test_native_wire_preview_preserves_full_differential(tmp_path, monkeypatch):
     # Exercise the public status tool with a realistically large completed worker result.
     ws = tasks.workspace(runtime.CONFIG, "large")
