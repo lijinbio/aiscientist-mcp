@@ -78,6 +78,13 @@ def fingerprint(tool):
         }
     cfg = Settings.from_env()
     files = [cfg.manifest, cfg.hgnc]
+    if cfg.index_dir:
+        name = os.environ.get("LITERATURE_INDEX_NAME", "retigene_full_pubmedbert")
+        safe_id(name, "index name")
+        for relative in ("files.zip", "index/meta.json", "index/.managed.json"):
+            path = cfg.index_dir / name / relative
+            if path.exists():
+                files.append(checked_input(path))
     if cfg.cache:
         files += [
             path

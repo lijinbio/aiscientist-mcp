@@ -425,22 +425,46 @@ def run_paperqa(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
 
 
 def _writable_index_root(shared_index_dir: Path, ctx: Any) -> str:
-    """Keep PaperQA's answer index in this analysis, never in the shared corpus."""
+    """Clone the prebuilt index: Tantivy requires a writer lock even for search.
+
+    The shared corpus stays read-only. An atomic private copy retains the saved
+    embeddings; it does not reindex PDFs and cannot mutate another analysis.
+    """
+    import shutil
+    import tempfile
+
+    from aiscientist_mcp.common.paths import safe_id
+
     from .settings import checked_input
 
     name = os.environ.get("LITERATURE_INDEX_NAME", "retigene_full_pubmedbert")
-    from aiscientist_mcp.common.paths import safe_id
-
     safe_id(name, "index name")
     target = checked_input(shared_index_dir / name)
     root = Path(ctx.workspace) / "pqa_index"
+    if root.is_symlink():
+        raise ValueError("analysis index root cannot be a symlink")
     root.mkdir(parents=True, exist_ok=True)
-    link = root / name
-    if link.is_symlink():
-        if link.resolve() != target:
+    destination = root / name
+    # Upgrade an analysis produced before the real read-only Tantivy check.
+    if destination.is_symlink():
+        if destination.resolve() != target:
             raise ValueError("analysis index link does not match the configured corpus")
-    elif link.exists():
-        raise ValueError("analysis index path already exists and is not the corpus link")
-    else:
-        link.symlink_to(target, target_is_directory=True)
+        destination.unlink()
+    if destination.exists():
+        if not destination.is_dir() or any(p.is_symlink() for p in destination.rglob("*")):
+            raise ValueError("analysis index must be a private directory without symlinks")
+        return str(root)
+    if any(p.is_symlink() for p in target.rglob("*")):
+        raise ValueError("prebuilt index cannot contain symlinks")
+    temporary = Path(tempfile.mkdtemp(prefix=".index-copy-", dir=root))
+    try:
+        private = temporary / name
+        shutil.copytree(target, private, copy_function=shutil.copyfile)
+        # copytree preserves directory modes. Explicitly grant only the worker
+        # access to the private copy even when the staged source is mode 0444.
+        for path in [private, *private.rglob("*")]:
+            path.chmod(0o700 if path.is_dir() else 0o600)
+        private.replace(destination)
+    finally:
+        shutil.rmtree(temporary)
     return str(root)

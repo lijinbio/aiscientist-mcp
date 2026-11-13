@@ -33,7 +33,7 @@ CellQC. Different species are processed separately with their own gene sets and 
 | `nreaction` | `1` | 10x reactions (GEM wells) pooled into each library. It only changes the expected doublet rate (rate x cells / (nreaction x capacity)), describes how the libraries were made and is NOT measured from the data: confirm it with whoever prepared them |
 | `doublet_decider` | `"doubletfinder"` | the doublet caller whose calls REMOVE cells; detailed diagnostics remain in the downloadable QC files |
 | `n_top_genes` | `2000` | highly-variable genes kept for the embedding after the libraries are merged |
-| `seed` | `42` | random seed for CellQC's stochastic steps, so a rerun reproduces |
+| `seed` | `42` | seed supplied to CellQC's stochastic steps; this does not guarantee identical diagnostics across executions |
 | `warn_ambient_frac` | `0.25` | flag a library whose mean SoupX contamination is above this. An ENGINEERING guard from the CellQC validation guide, not a literature threshold |
 | `warn_retained_below` | `0.5` | flag a library that keeps less than this fraction of its Cell Ranger cells. An ENGINEERING guard: losing half a library usually means a threshold, or the library, is the problem |
 
@@ -128,6 +128,22 @@ Native MCP tests exercise tools/list, schema rejection, the actual inline worker
 request reuse/invalidation, path bounds, concurrent submissions and stdio startup.
 
 The regression fixture substitutes a small executable for CellQC itself. It verifies port
-behavior, not R/SoupX/DoubletFinder correctness or a production image build. Real Cell Ranger
-samples must also be run in the released image and compared against the original tool before
-retiring the application's implementation.
+behavior, not R/SoupX/DoubletFinder correctness. A separate real acceptance run used three
+Cell Ranger libraries spanning two species, the existing CellQC 0.3.6 production environment,
+identical inputs and settings (`seed=42`, `max_pct_mt=5`), and independent executions of this
+MCP port and the original application tool. Both completed; native tools/list, invalid-input
+rejection, job status and unchanged-request reuse also passed.
+
+The resulting normalized matrices, integer counts, raw values, observation/gene metadata and
+retained cell counts matched for both species. Strict equality of the complete metrics table
+**did not pass**: the four diagnostic `ambient_decontx_contamination_{min,median,mean,max}`
+columns differed, with a largest absolute mean difference of approximately 0.01173. DecontX
+was the comparison method in these runs; SoupX supplied the applied counts, which matched.
+The discrepancy remains recorded rather than being hidden by a looser equality threshold.
+It must be distinguished from exact reproducibility of every diagnostic or validation of a
+newly released image at the target site.
+
+These runs also retained warnings about doublet-caller disagreement and strong mitochondrial
+filtering in one library. The chosen 5% cutoff is an acceptance-test parameter, not a universal
+recommendation. No BAM was supplied, so this acceptance does not cover nuclear-fraction
+calculation. The application's existing implementation remains available during migration.

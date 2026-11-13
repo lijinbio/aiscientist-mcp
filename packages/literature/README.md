@@ -78,8 +78,9 @@ There is one active task per analysis to protect shared checkpoints. Follow comm
 
 Explicit paths must resolve inside an admitted root, including manifest PDF locations. Shared
 corpus caches stay read-only. Missing text caches may be built from PDFs only inside the analysis
-workspace. PaperQA's mutable answer index lives in that workspace beside a validated read-only
-link to its prebuilt corpus index. Index synchronization is disabled during queries.
+workspace. PaperQA gets an atomic private copy of the prebuilt corpus index inside that
+workspace, because Tantivy takes a writer lock even during searches. Saved
+embeddings are reused; the shared index remains read-only. Index synchronization is disabled during queries.
 
 ## Models, network, and budgets
 

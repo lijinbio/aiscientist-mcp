@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -223,9 +224,9 @@ def test_paperqa_pins_endpoint_and_keeps_its_answer_index_local(tmp_path, monkey
     assert settings.llm_config["model_list"][0]["litellm_params"]["api_base"] == "http://127.0.0.1:9999/v1"
     assert settings.agent.index.sync_with_paper_directory is False
     assert settings.agent.index.index_directory == str(ws / "pqa_index")
-    assert (
-        ws / "pqa_index" / "retigene_full_pubmedbert"
-    ).resolve() == root / "index_pubmedbert" / "retigene_full_pubmedbert"
+    private_index = ws / "pqa_index" / "retigene_full_pubmedbert"
+    assert private_index.is_dir() and not private_index.is_symlink()
+    assert private_index.resolve() != root / "index_pubmedbert" / "retigene_full_pubmedbert"
     assert not (root / "index_pubmedbert" / "answers").exists()
     monkeypatch.setattr(sys.modules["paperqa"], "ask", lambda *args, **kwargs: SimpleNamespace(contexts=[], answer=""))
     assert deep.run_paperqa({"question": "Nothing matches"}, SimpleNamespace(workspace=ws))["status"] == "failed"
@@ -278,3 +279,25 @@ def test_paperqa_explicit_model_output_cap(monkeypatch):
     monkeypatch.setenv("LITERATURE_MODEL_MAX_TOKENS", "0")
     with pytest.raises(ValueError, match="positive"):
         _llm_config("openai/fixture", "http://node:8000/v1", "off")
+
+
+def test_readonly_prebuilt_index_gets_private_writable_copy(tmp_path, monkeypatch):
+    from aiscientist_mcp.literature.deep import _writable_index_root
+
+    shared = tmp_path / "shared"
+    index = shared / "retigene_full_pubmedbert" / "index"
+    index.mkdir(parents=True)
+    source = index / "meta.json"
+    source.write_text('{"fixture":"prebuilt embeddings"}')
+    source.chmod(0o444)
+    monkeypatch.setenv("LITERATURE_CORPUS_ROOT", str(shared))
+    workspace = tmp_path / "analysis"
+    root = Path(_writable_index_root(shared, SimpleNamespace(workspace=workspace)))
+    copied = root / "retigene_full_pubmedbert" / "index" / "meta.json"
+    assert copied.read_text() == source.read_text() and copied.stat().st_ino != source.stat().st_ino
+    assert copied.stat().st_mode & 0o200
+    copied.write_text("private index update")
+    (copied.parent / ".tantivy-writer.lock").write_text("local writer")
+    assert source.read_text() == '{"fixture":"prebuilt embeddings"}'
+    assert not (index / ".tantivy-writer.lock").exists()
+    assert _writable_index_root(shared, SimpleNamespace(workspace=workspace)) == str(root)
