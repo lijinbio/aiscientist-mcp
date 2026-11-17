@@ -26,3 +26,5 @@
 /containers/scgpt-annotation/ @lijinbio
 /packages/data-utilities/ @lijinbio
 /containers/data-utilities/ @lijinbio
+/packages/retigene-rag/                   @lijinbio @KrimsonSun
+/containers/retigene-rag/                 @lijinbio @KrimsonSun

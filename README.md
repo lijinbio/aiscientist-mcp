@@ -53,6 +53,7 @@ The catalog is generated from each server's `pyproject.toml` and tool list by
 | Server | Version | Tools | Image |
 | --- | --- | --- | --- |
 | [`literature`](packages/literature) | 0.0.4 | `literature_search`, `search_corpus`, `deep_literature`, `extract_haploinsufficient_genes`, `literature_job_status` | `ghcr.io/lijinbio/mcp-literature:0.0.4` |
+| [`retigene-rag`](packages/retigene-rag) | 0.0.1 | `get_gene`, `find_genes`, `search_sentences`, `search_passages`, `read_passage`, `submit_curation`, `curation_status`, `get_genes`, `get_evidence`, `evaluate`, `write_report`, `list_curations` | `ghcr.io/lijinbio/mcp-retigene-rag:0.0.1` |
 
 ### single-cell
 

@@ -67,7 +67,7 @@ jobs:
       - run: aiscientist-mcp --server atlas-expression-exploration-mcp tools | python -c 'import json, sys; assert len(json.load(sys.stdin)) == 9'
       - name: Every new package exposes typed tools without runtime data
         run: |
-          for server in scrna-analysis cellqc literature variant-annotation phenotype-diagnosis scgpt-annotation data-utilities visionkb-kg; do
+          for server in scrna-analysis cellqc literature variant-annotation phenotype-diagnosis scgpt-annotation data-utilities visionkb-kg retigene-rag; do
             aiscientist-mcp --server "$server-mcp" tools | python -c 'import json, sys; assert json.load(sys.stdin)'
           done
 
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        server: [atlas-expression-exploration, visionkb-kg, scrna-analysis, cellqc, literature, variant-annotation, phenotype-diagnosis, data-utilities, scgpt-annotation]
+        server: [atlas-expression-exploration, visionkb-kg, scrna-analysis, cellqc, literature, variant-annotation, phenotype-diagnosis, data-utilities, scgpt-annotation, retigene-rag]
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4

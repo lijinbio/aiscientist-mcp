@@ -18,6 +18,7 @@ members = [
     "aiscientist-mcp-data-utilities",
     "aiscientist-mcp-literature",
     "aiscientist-mcp-phenotype-diagnosis",
+    "aiscientist-mcp-retigene-rag",
     "aiscientist-mcp-scgpt-annotation",
     "aiscientist-mcp-scrna-analysis",
     "aiscientist-mcp-variant-annotation",
@@ -278,6 +279,34 @@ requires-dist = [
 provides-extras = ["test"]
 
 [[package]]
+name = "aiscientist-mcp-retigene-rag"
+version = "0.0.1"
+source = { editable = "packages/retigene-rag" }
+dependencies = [
+    { name = "aiscientist-mcp-common" },
+    { name = "anthropic" },
+    { name = "numpy" },
+]
+
+[package.optional-dependencies]
+embed = [
+    { name = "sentence-transformers" },
+]
+test = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiscientist-mcp-common", editable = "packages/common" },
+    { name = "anthropic", specifier = ">=1.13" },
+    { name = "numpy" },
+    { name = "pytest", marker = "extra == 'test'" },
+    { name = "sentence-transformers", marker = "extra == 'embed'", specifier = ">=6.2" },
+]
+provides-extras = ["embed", "test"]
+
+[[package]]
 name = "aiscientist-mcp-scgpt-annotation"
 version = "0.0.3"
 source = { editable = "packages/scgpt-annotation" }
@@ -421,6 +450,25 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz", hash = "sha256:13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7", size = 15893, upload-time = "2026-07-23T20:16:13.995Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl", hash = "sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0", size = 13427, upload-time = "2026-07-23T20:16:12.938Z" },
+]
+
+[[package]]
+name = "anthropic"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "docstring-parser" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "opentelemetry-api" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ac/ab/53ca7d25bc5fa3fa3db2694e9dec5d060c6b24172976dbcabe0d947e2d03/anthropic-2.9.0.tar.gz", hash = "sha256:0a3379add94953db2dc736839bbafb0c624f6bec69caf13e44353d906c253981", size = 1993336, upload-time = "2026-11-16T16:47:55.069Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/f1/bd9e6c33eaee316ed2dd283e88eb37160fcd66ffc79325118aed2a7f96b4/anthropic-2.9.0-py3-none-any.whl", hash = "sha256:410281f4b9fa6422ccc465e5e531a00d69c6f589c743134e77c23fefc3e5cb4f", size = 2468706, upload-time = "2026-11-16T16:47:53.501Z" },
 ]
 
 [[package]]
