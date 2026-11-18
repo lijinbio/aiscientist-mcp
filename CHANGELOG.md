@@ -8,6 +8,14 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 
 ### Fixed
 
+- retigene-rag 0.0.2: the two readings of a gene are paired by sentence number. When one batch of one
+  reading had no readable reply, that reading used to be shorter than the other, and the merge by position
+  compared the wrong sentences or stopped with an index error. A sentence only one reading has is kept
+  unagreed, so it cannot meet A.
+- retigene-rag 0.0.2: a gene with a sentence that no reading could read is `unresolved`, with no review call.
+  It used to be graded N by rule when its unread sentences were its only ones with a claim.
+- retigene-rag 0.0.2: `subject_is_gene_dosage` written as the string `"false"` is read as false; `bool("false")`
+  is true. Grades of a curation in which every reply was read are unchanged (rules revision 17).
 - variant-annotation 0.0.3: a VCF whose header has no `##contig` lines is annotated. With a
   reference FASTA configured, `bcftools norm` used to stop with "Invalid BCF, CONTIG id=0 not
   present in the header"; the contigs now come from the reference's `.fai` first.

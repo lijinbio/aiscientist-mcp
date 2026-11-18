@@ -149,6 +149,12 @@ def _pick(value: Any, allowed: tuple[str, ...], default: str) -> str:
     return v if v in allowed else default
 
 
+def _true(value: Any) -> bool:
+    """A JSON ``true`` or the string "true". ``bool("false")`` is True, and a model that writes its
+    booleans as strings would then count another gene's dosage statement for this one."""
+    return value is True or (isinstance(value, str) and value.strip().lower() == "true")
+
+
 def parse_gene_check(text: str, n_sentences: int) -> list[dict[str, Any]] | None:
     """The pass-one items, one per sentence number (1..n), with every field read into its closed
     vocabulary (an unknown value becomes the conservative one: no claim, hedged, not gene dosage,
@@ -171,7 +177,7 @@ def parse_gene_check(text: str, n_sentences: int) -> list[dict[str, Any]] | None
             "dosage_claim": _pick(it.get("dosage_claim"), DOSAGE_CLAIMS, "no"),
             "hedge": _pick(it.get("hedge"), ("none", "hedged"), "hedged"),
             "hedge_target": _pick(it.get("hedge_target"), HEDGE_TARGETS, "mechanism"),
-            "subject_is_gene_dosage": bool(it.get("subject_is_gene_dosage")),
+            "subject_is_gene_dosage": _true(it.get("subject_is_gene_dosage")),
             "mechanism_stated": _pick(it.get("mechanism_stated"), MECHANISMS, "unspecified"),
             "phenotype": (str(it.get("phenotype")).strip() or None) if it.get("phenotype") else None,
             "phenotype_kind": _pick(it.get("phenotype_kind"), PHENOTYPE_KINDS, "unclear"),
@@ -639,6 +645,9 @@ def check_gene(
     quote verified against the corpus text, and an error message when a batch could not be read.
     ``passes`` > 1 reads every sentence that many times (the cheap model is not deterministic: a
     hedge or a phenotype kind can change between readings). The readings are merged field by field:
+    readings are paired by sentence number, never by position (a batch whose reply cannot be read
+    keeps its sentences as ``unread`` records, so a failed batch neither shortens a reading nor
+    shifts it against the other); a sentence one reading missed is not agreed and cannot meet A;
     they must agree that the sentence is an unhedged claim (a hedge seen by one reading is a hedge)
     and whether its phenotype is ocular (one eye kind and one not leaves the kind unclear, which
     counts only through another sentence of the same paper); the reading that saw the claim's own
@@ -650,9 +659,22 @@ def check_gene(
         for _ in range(max(1, passes))
     ]
     out, err = readings[0]
+    for c in out:
+        c["readings_missing"] = int(c["unread"])
     for other, err2 in readings[1:]:
+        by_number = {o["sentence"]: o for o in other}
         for k, c in enumerate(out):
-            o = other[k]
+            o = by_number.get(c["sentence"])
+            if o is None or o["unread"]:
+                # this reading has nothing for the sentence: what was read stands, unagreed
+                c["readings_missing"] += 1
+                c["claim_agreed"] = False
+                continue
+            if c["unread"]:
+                # the earlier reading(s) had nothing: this one stands, unagreed
+                out[k] = c = {**o, "readings_missing": c["readings_missing"], "claim_agreed": False, "unread": False}
+                c["readings_differ"] = "one reading only"
+                continue
             differ = [f"{f} {c[f]}/{o[f]}" for f in CHECK_FIELDS if f != "quote" and c[f] != o[f]]
             c["claim_agreed"] = (
                 c.get("claim_agreed", True)
@@ -690,12 +712,18 @@ def check_gene(
         if err2 and err2 not in err:
             err = "; ".join(x for x in (err, err2) if x)
     for c in out:
+        if c["unread"]:
+            c["readings_differ"] = "not read"
+        if c["readings_missing"] and not c["unread"]:
+            c["readings_differ"] = c.get("readings_differ") or "one reading only"
+            c["contests"] = False  # a sentence argues against HI only when every reading says so
+            c["contest_strength"] = 0
         c.setdefault("readings_differ", "")
         c.setdefault("claim_agreed", True)
         c.setdefault("eye_disputed", False)
         c.setdefault("contest_strength", contest_strength(c))
     for c in out:  # the A gate, on the merged readings
-        c["meets_a"] = bool(c["claim_agreed"]) and meets_a_with_gene(c, out)
+        c["meets_a"] = not c["unread"] and bool(c["claim_agreed"]) and meets_a_with_gene(c, out)
     # a paper whose own conclusion about this gene is hedged does not make the gene A on its result
     # sentences; and a sentence that restates one study's finding is not an explicit statement
     hedged_conclusions = {c["pmid"] for c in out if c.get("is_conclusion") and is_claim(c) and claim_hedged(c)}
@@ -750,9 +778,10 @@ def _check_gene_once(
             items = parse_gene_check(raw, len(part))
             if items is not None:
                 break
-        if items is None:
+        unread = items is None
+        if unread:
             errors.append(f"sentences {rng.start + 1}-{rng.stop}: reply was not the JSON asked for")
-            continue
+            items = []
         got = {c["sentence"] for c in items}
         for k, h in enumerate(part, 1):
             c = next((c for c in items if c["sentence"] == k), None)
@@ -770,6 +799,7 @@ def _check_gene_once(
                     "quote": "",
                 }
             c = dict(c)
+            c["unread"] = unread  # the batch's reply could not be read: these fields are placeholders
             c["sentence"] = rng.start + k  # number within the gene, not the batch
             c["quote_verified"], c["quote"] = verify_quote(c["quote"], h)
             c["sentence_text"] = h.text  # the wording rules read the sentence, not the quote
@@ -793,10 +823,10 @@ def _check_gene_once(
             c["is_conclusion"] = is_conclusion(h.text)
             c["restates_study"] = restates_one_study(h.text)
             out.append(c)
-        if len(got) < len(part):
+        if not unread and len(got) < len(part):
             errors.append(f"{len(part) - len(got)} sentence(s) without an item, read as no claim")
     for c in out:
-        c["meets_a"] = meets_a_with_gene(c, out)
+        c["meets_a"] = not c["unread"] and meets_a_with_gene(c, out)
     return out, "; ".join(errors)
 
 
@@ -836,6 +866,8 @@ def grade_gene(
     check_passes: int = 1,
 ) -> GeneGrade:
     """Both passes for one gene. The code's guards on the model's grade:
+    * a sentence that a reading could not read (its batch's reply was not the JSON asked for, after
+      the retries) -> ``unresolved`` before anything else: no review call, no N by rule;
     * no verified claim at all -> N without a review call (``reviewed_by="rules"``);
     * a review of A or B while no verified claim sentence carries an eye phenotype (both readings)
       -> N: the curator's non-ocular rule (GATAD2B), which the reviewer once softened to B;
@@ -850,6 +882,14 @@ def grade_gene(
     * an unreadable review -> ``unresolved`` (listed apart, never as A)."""
     checks, err = check_gene(gene, hits, check_fn, titles=titles, retries=retries, passes=check_passes)
     g = GeneGrade(gene, "unresolved", checks, error=err)
+    missed = [c["sentence"] for c in checks if c.get("unread") or c.get("readings_missing")]
+    if missed or (not checks and err):
+        # a reading could not be read after its retries: the gene is listed apart, with no review call
+        # and no grade by rule, because sentences that were not read (or read once of twice) say nothing
+        g.error = "; ".join(
+            x for x in (err, f"{len(missed)} of {len(checks)} sentence(s) lack a reading: not graded") if x
+        )
+        return g
     claims = [c for c in checks if is_claim(c) and c["quote_verified"]]
     if not claims:
         g.grade, g.reviewed_by = "N", "rules"
@@ -862,8 +902,6 @@ def grade_gene(
                 "no verified sentence states a dosage claim about this gene" if checks else "no sentences were read"
             ),
         }
-        if not checks and err:
-            g.grade = "unresolved"
         return g
     review = None
     for _ in range(1 + retries):
