@@ -6,6 +6,21 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 
 ## [Unreleased]
 
+### Added
+
+- retigene-rag 0.1.0: the gene table beside the corpus (RCHENLAB/AiScientist #124, phase 1).
+  `get_gene` finds a gene by an HGNC previous symbol or alias, and with `inheritance` or `phenotypes` it
+  says which of them the established record holds (`check.differs`). `search_sentences(gene=...)` and
+  `search_passages(gene=...)` return the table's record of the gene (`gene_facts`).
+  `search_passages(gene=...)` ranks the gene's own passages first: those of its key papers and those that
+  name it. `search_sentences(aliases=true)` also counts the gene's other HGNC names. `get_genes` gives each
+  curated gene its RetiGene status and inheritance, and a `table_note` on an A or B gene that is recessive
+  only or discarded there. No grade changes. Calls without the new arguments return what they did.
+  The minor version is part of the curation id: a curation kept by 0.0.x is made again under a new id,
+  from the cached replies.
+- retigene-rag 0.1.0: an OMIM disease keeps `digenic` (`recessive` or `dominant`) beside its inheritance
+  modes; the word used to be dropped.
+
 ### Fixed
 
 - retigene-rag 0.0.3: a curation kept by 0.0.1 is not reused. The curation id holds the minor version

@@ -68,19 +68,40 @@ def sentence_line(c: Corpus, i: int, sid: str, sentence: str) -> str:
     return f"PMID {c.passages[i]['pmid']} p{c.passages[i]['page']} c{c.passages[i]['chunk']}: {sentence}"
 
 
-def keyword_search(c: Corpus, terms: list[str], gene: str = "", limit: int = 100, offset: int = 0) -> dict:
-    """Every sentence that holds any of ``terms`` (and names ``gene`` as a word, when given), a page at a time."""
+def names_regex(names: list[str]) -> re.Pattern[str] | None:
+    """Any of the names as a whole word, as written."""
+    names = [n.strip() for n in names if n and n.strip()]
+    return re.compile(r"\b(?:" + "|".join(re.escape(n) for n in dict.fromkeys(names)) + r")\b") if names else None
+
+
+def keyword_search(c: Corpus, terms: list[str], gene: str = "", limit: int = 100, offset: int = 0,
+                   names: list[str] | None = None) -> dict:  # fmt: skip
+    """Every sentence that holds any of ``terms`` (and names ``gene`` as a word, when given), a page at a time.
+    ``names``: other names of the gene (HGNC previous symbols and aliases) that count as naming it."""
     ts = [t for t in dict.fromkeys(fold(t) for t in terms) if t]
     if not ts or any(len(t) < MIN_TERM for t in ts):
         raise ValueError(f"give terms of at least {MIN_TERM} letters, e.g. 'haploinsufficien' or 'loss of function'")
-    grx = re.compile(rf"\b{re.escape(gene.strip())}\b") if gene.strip() else None
+    grx = names_regex([gene, *(names or [])]) if gene.strip() else None
     hits = [(i, sid, s) for i, sid, s, f in c.sentences if any(t in f for t in ts) and (grx is None or grx.search(s))]
     limit, offset = max(1, min(int(limit), 200)), max(0, int(offset))
     page = hits[offset : offset + limit]
-    return {"terms": ts, "gene": gene.strip(), "total_sentences": len(hits),
-            "total_passages": len({i for i, _, _ in hits}), "offset": offset,
-            "next_offset": offset + limit if offset + limit < len(hits) else None,
-            "sentences": "\n".join(sentence_line(c, i, sid, s) for i, sid, s in page)}  # fmt: skip
+    out = {"terms": ts, "gene": gene.strip(), "total_sentences": len(hits),
+           "total_passages": len({i for i, _, _ in hits}), "offset": offset,
+           "next_offset": offset + limit if offset + limit < len(hits) else None,
+           "sentences": "\n".join(sentence_line(c, i, sid, s) for i, sid, s in page)}  # fmt: skip
+    return out | ({"gene_names": list(dict.fromkeys([gene.strip(), *names]))} if grx is not None and names else {})
+
+
+def gene_passages(c: Corpus, pmids: set[str], names: list[str]) -> dict[int, str]:
+    """The passages that are a gene's own: those of its key papers, and those with a sentence that names it.
+    Passage index -> 'key paper' or 'names the gene'."""
+    out = {i: "key paper" for i, p in enumerate(c.passages) if p["pmid"] in pmids}
+    rx = names_regex(names)
+    if rx is not None:
+        for i, _, s, _ in c.sentences:
+            if i not in out and rx.search(s):
+                out[i] = "names the gene"
+    return out
 
 
 def _offline_embed(dim: int):
@@ -134,9 +155,11 @@ def load_vectors(path: Path, n: int):
 
 
 def embedding_search(c: Corpus, vectors, embed, query: str, terms: list[str] | None = None, top_k: int = 5,
-                     manifest: dict | None = None) -> dict:  # fmt: skip
+                     manifest: dict | None = None, own: dict[int, str] | None = None) -> dict:  # fmt: skip
     """The ``top_k`` passages nearest ``query`` by cosine, as written, with PMID, page and title. With
-    ``terms``, only passages that hold one of them (folded, as in keyword search) are ranked."""
+    ``terms``, only passages that hold one of them (folded, as in keyword search) are ranked. With ``own``
+    (a gene's passages, see ``gene_passages``), those are ranked first and the rest of the corpus fills what
+    is left; each passage then says which it is in ``scope``."""
     import numpy as np
 
     ts = [t for t in dict.fromkeys(fold(t) for t in terms or []) if t]
@@ -152,14 +175,20 @@ def embedding_search(c: Corpus, vectors, embed, query: str, terms: list[str] | N
         order = sorted(pool, key=lambda i: -scores[i])
     else:
         order = [int(x) for x in np.argsort(-scores, kind="stable")]
+    if own is not None:  # the gene's passages first, each part in its own cosine order
+        order = [i for i in order if i in own] + [i for i in order if i not in own]
     out = []
     for i in order[: max(1, min(int(top_k), 10))]:
         p, m = c.passages[i], (manifest or {}).get(c.passages[i]["pmid"], {})
         out.append({"pmid": p["pmid"], "chunk": p["chunk"], "page": p["page"], "title": m.get("title", ""),
-                    "cosine": round(float(scores[i]), 4), "text": p["text"]})  # fmt: skip
+                    "cosine": round(float(scores[i]), 4), "text": p["text"]}
+                   | ({"scope": own.get(i, "rest of the corpus")} if own is not None else {}))  # fmt: skip
     res = {"query": query, "passages": out}
     if ts:
         res |= {"terms": ts, "passages_with_terms": len(pool)}
+    if own is not None:
+        res |= {"gene_passages": len(own) if pool is None else len(set(pool) & set(own)),
+                "from_rest_of_corpus": sum(1 for r in out if r["scope"] == "rest of the corpus")}  # fmt: skip
     return res
 
 

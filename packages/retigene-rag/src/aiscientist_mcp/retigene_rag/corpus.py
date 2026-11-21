@@ -145,6 +145,7 @@ class Hgnc:
     def __init__(self, path: Path | None):
         self.hg: dict[str, str] = {}
         self.alias: dict[str, set[str]] = {}
+        self._names: dict[str, list[str]] | None = None
         self.loaded = False
         if not path or not Path(path).is_file():
             return
@@ -162,6 +163,21 @@ class Hgnc:
                         if a:
                             self.alias.setdefault(a.upper(), set()).add(sym)
         self.loaded = True
+
+    def names(self, symbol: str) -> list[str]:
+        """How papers may write a gene: its approved symbol, then the previous symbols and aliases of four
+        characters or more that belong to it alone, are written like a gene symbol and are not an abbreviation
+        of this field (CEP290: NPHP6, BBS14, ...; not LCA10, which is also an alias of another gene, and not
+        OPA1's NTG, which papers use for normal-tension glaucoma)."""
+        sym, how = self.norm(symbol)
+        if how not in ("ok", "alias") or not sym:
+            return []
+        if self._names is None:
+            self._names = {}
+            for a, owners in self.alias.items():
+                if len(owners) == 1 and len(a) >= 4 and a not in self.hg and is_gene(a):
+                    self._names.setdefault(next(iter(owners)), []).append(a)
+        return [sym, *sorted(self._names.get(sym, []))]
 
     def norm(self, g: Any) -> tuple[str | None, str]:
         """``(symbol, status)``; status ok | alias | ambiguous:A|B | unknown | missing | unchecked."""
