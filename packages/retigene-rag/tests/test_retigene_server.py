@@ -97,6 +97,46 @@ def test_replies_are_reused_from_the_cache(env):
     asyncio.run(flow())
 
 
+def test_a_curation_kept_by_an_earlier_merge_is_run_again(env):
+    """A patch release finds the curations of the releases before it, because the id holds the minor version
+    only. One made before the two readings were paired by sentence number is neither reused nor read: asking
+    again runs it again, from the cached replies."""
+    from pathlib import Path
+
+    from aiscientist_mcp.retigene_rag import __version__
+    from aiscientist_mcp.retigene_rag.server import server
+    from mcp import Client
+
+    async def flow():
+        async with Client(server) as c:
+            args = {"question": QUESTION, "terms": ["haploinsufficien"]}
+            first = (await c.call_tool("submit_curation", args)).structured_content
+            cid = first["curation_id"]
+            kept = Path(first["files"]["genes"]).parent / "curation.json"
+            doc = json.loads(kept.read_text(encoding="utf-8"))
+            assert doc["server_version"] == __version__
+            kept.write_text(json.dumps(doc | {"server_version": "0.0.1"}), encoding="utf-8")
+
+            st = (await c.call_tool("curation_status", {"curation_id": cid})).structured_content
+            assert st["state"] == "OUTDATED" and "retigene-rag 0.0.1" in st["note"] and "genes_A" not in st
+            listed = (await c.call_tool("list_curations", {})).structured_content["curations"][0]
+            assert listed["state"] == "OUTDATED" and "grades" not in listed
+            for tool in ("get_genes", "get_evidence", "evaluate", "write_report"):
+                r = await c.call_tool(tool, {"curation_id": cid})
+                assert r.is_error and "retigene-rag 0.0.1" in " ".join(getattr(x, "text", "") for x in r.content)
+
+            again = (await c.call_tool("submit_curation", args)).structured_content
+            assert again["state"] == "COMPLETED" and "reused" not in again and "0.0.1" in again["replaces"]
+            assert again["total"]["calls"] == 0 and again["total"]["cached"] == first["total"]["calls"]
+            assert again["genes_A"] == first["genes_A"] and again["genes_B"] == first["genes_B"]
+            assert json.loads(kept.read_text(encoding="utf-8"))["server_version"] == __version__
+            third = (await c.call_tool("submit_curation", args)).structured_content
+            assert third["reused"] and "replaces" not in third
+            assert not (await c.call_tool("get_genes", {"curation_id": cid})).is_error
+
+    asyncio.run(flow())
+
+
 def test_over_budget_stops_before_any_call(env, monkeypatch):
     from aiscientist_mcp.retigene_rag.server import server
     from mcp import Client

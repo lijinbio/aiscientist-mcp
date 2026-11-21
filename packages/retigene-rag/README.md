@@ -52,6 +52,12 @@ A curation is kept under an id made of its terms, the rules, the models and the 
 asking again reuses it. Every model reply is cached (`RETIGENE_CACHE`), so a rerun, a reworded question with
 the same sentences, or a corpus update reads only what changed.
 
+The id also holds the server's minor version (`0.0`), so a patch release finds the curations of the releases
+before it. A curation made by 0.0.1 is not reused: 0.0.2 changed how a gene's two readings are merged, and
+the kept tables do not show every case that the change affects. `submit_curation` runs such a curation
+again from the cached replies and names what it replaces in `replaces`. Until it is run again, `curation_status` and `list_curations` give it the state `OUTDATED`, and
+the tools that read a curation refuse it.
+
 **The model comes from the caller**: `RETIGENE_PROVIDER`, `RETIGENE_CHECK_MODEL` / `RETIGENE_REVIEW_MODEL` and the
 key or endpoint settings below. The curation records which model read it. It is validated on Claude Haiku
 5.5 (the defaults, both readers; the 15-gene test below); for another model, run the test again.
