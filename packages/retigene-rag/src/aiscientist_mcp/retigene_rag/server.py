@@ -130,11 +130,22 @@ def _clip(row: dict, keys, quote=300) -> dict:
     return out
 
 
+RUN_AGAIN = ". Call submit_curation with the same terms: it runs the curation again from the cached replies"
+
+
+def _outdated(d) -> str:
+    from . import curate
+
+    return curate.outdated(d)
+
+
 def _summary(d, state: dict) -> dict:
     out = {"curation_id": d.name, "state": state.get("state")}
     for k in ("job_id", "note", "error", "elapsed_s"):
         if state.get(k):
             out[k] = state[k]
+    if out["state"] == "COMPLETED" and (old := _outdated(d)):
+        return out | {"state": "OUTDATED", "note": old + RUN_AGAIN}
     cur = d / "curation.json"
     if out["state"] == "COMPLETED" and cur.is_file():
         c = json.loads(cur.read_text(encoding="utf-8"))
@@ -159,6 +170,8 @@ def _completed(cfg, curation_id):
     st = jobs.status(_job_cfg(), d)
     if st.get("state") != "COMPLETED" or not (d / "genes.csv").is_file():
         raise ValueError(f"curation {curation_id} is {st.get('state')}, not COMPLETED: poll curation_status")
+    if old := _outdated(d):
+        raise ValueError(f"curation {curation_id} was {old}{RUN_AGAIN}")
     return d
 
 
@@ -358,7 +371,8 @@ def submit_curation(question: str, terms: list[str] | None = None, estimate_only
                 "terms": [{"term": t.text, "source": t.source, "n_sentences": t.n_sentences} for t in found_terms],
                 "models": cfg.models()}  # fmt: skip
         state = jobs.status(jc, d) if (d / "state.json").exists() else {}
-        if not rerun and state.get("state") in ("COMPLETED", "PENDING", "RUNNING"):
+        old = curate.outdated(d) if state.get("state") == "COMPLETED" else ""  # kept, but not to be reused
+        if not rerun and not old and state.get("state") in ("COMPLETED", "PENDING", "RUNNING"):
             return {**_summary(d, state), "reused": True, "estimate": est}
         if estimate_only:
             return {**info, "state": "ESTIMATE"}
@@ -378,7 +392,7 @@ def submit_curation(question: str, terms: list[str] | None = None, estimate_only
         else:
             cmd = [sys.executable, "-m", "aiscientist_mcp.retigene_rag.curate", "--dir", str(d)]
             jobs.submit(jc, cmd, d, f"{SERVER_NAME}_{cid}")
-        return {**_summary(d, jobs.status(jc, d)), "estimate": est}
+        return {**_summary(d, jobs.status(jc, d)), "estimate": est} | ({"replaces": old} if old else {})
 
 
 def _run_inline(d, fn) -> None:
@@ -498,7 +512,9 @@ def list_curations() -> dict[str, Any]:
         row = {"curation_id": d.name, "question": json.loads(p.read_text(encoding="utf-8"))["question"],
                "state": st.get("state")}  # fmt: skip
         cur = d / "curation.json"
-        if cur.is_file():
+        if cur.is_file() and (old := _outdated(d)):
+            row |= {"state": "OUTDATED", "note": old + RUN_AGAIN}
+        elif cur.is_file():
             c = json.loads(cur.read_text(encoding="utf-8"))
             row |= {"grades": c["grades"], "cost_usd": c["total"]["cost_usd"], "seconds": c["total"]["seconds"]}
         out.append(row)

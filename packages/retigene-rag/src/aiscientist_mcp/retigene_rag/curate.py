@@ -11,7 +11,8 @@
 
 A curation is kept by its id: the terms, the rules, the models and the index fingerprint. Asking again
 with the same ones reuses it, and the model replies are cached across curations, so a reworded question
-or a corpus update reads only the genes whose sentences changed.
+or a corpus update reads only the genes whose sentences changed. A curation that a version before
+``READINGS_SINCE`` made is not reused (``outdated``): it is run again, from the cached replies.
 
     python -m aiscientist_mcp.retigene_rag.curate --dir <curation folder>
 """
@@ -23,6 +24,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 import threading
 import time
 from pathlib import Path
@@ -34,6 +36,7 @@ from . import model as M
 
 PROPERTY = "haploinsufficiency"
 RULES_REVISION = 17  # the sentence-curation rules of RCHENLAB/AiScientist #99
+READINGS_SINCE = "0.0.2"  # the first version that merges a gene's two readings as this one does
 MAX_TERMS = 12
 REQUEST_COLUMNS = ("term", "kind", "source", "n_sentences")
 GENE_COLUMNS = (*grading.GRADE_COLUMNS, "citation", "title", "year", "doi")
@@ -59,6 +62,27 @@ def curation_id(terms: list[str], models: dict, fingerprint: str) -> str:
     key = json.dumps([rules_digest(), sorted(t.lower() for t in terms), models, fingerprint,
                       __version__.rsplit(".", 1)[0]], sort_keys=True)  # fmt: skip
     return f"{PROPERTY}-{hashlib.sha256(key.encode()).hexdigest()[:12]}"
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in re.findall(r"\d+", str(text))[:3])
+
+
+def outdated(d: Path) -> str:
+    """Why the completed curation kept in ``d`` is not reused ("" when it is). The id holds the minor
+    version only, so a patch release finds the curations of the releases before it. One made before
+    ``READINGS_SINCE`` paired its two readings by position and read the string ``"false"`` as true. A
+    batch without a readable reply could then set the readings against the wrong sentences, or leave
+    its gene graded N by rule, and a boolean read wrongly leaves no trace in the kept tables."""
+    try:
+        cur = json.loads((d / "curation.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    made = str(cur.get("server_version") or "")
+    if _version(made) >= _version(READINGS_SINCE):
+        return ""
+    return (f"made by retigene-rag {made or 'of an unrecorded version'}, before {READINGS_SINCE} changed how a "
+            "gene's two readings are merged: its grades are not reused")  # fmt: skip
 
 
 class Loaded:
