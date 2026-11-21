@@ -8,12 +8,6 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 
 ### Fixed
 
-- retigene-rag 0.0.3: a curation kept by 0.0.1 is not reused. The curation id holds the minor version
-  only, so 0.0.2 returned a curation that 0.0.1 had completed as it was, including one with a batch that
-  could not be read. `submit_curation` now runs such a curation again, from the cached model replies, and
-  says what it replaces. Until then `curation_status` and `list_curations` give it the state `OUTDATED`,
-  and `get_genes`, `get_evidence`, `evaluate` and `write_report` refuse it. Curations made by 0.0.2 are
-  reused as before.
 - retigene-rag 0.0.2: the two readings of a gene are paired by sentence number. When one batch of one
   reading had no readable reply, that reading used to be shorter than the other, and the merge by position
   compared the wrong sentences or stopped with an index error. A sentence only one reading has is kept
@@ -60,6 +54,17 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
   pushes the image and publishes a GitHub release.
 - A README catalog grouped by category, generated with `servers.json` by `index_servers.py`
   (`--check` in CI).
+
+## retigene-rag 0.0.3 - 2026-11-21
+
+### Fixed
+
+- retigene-rag 0.0.3: a curation kept by 0.0.1 is not reused. The curation id holds the minor version
+  only, so 0.0.2 returned a curation that 0.0.1 had completed as it was, including one with a batch that
+  could not be read. `submit_curation` now runs such a curation again, from the cached model replies, and
+  says what it replaces. Until then `curation_status` and `list_curations` give it the state `OUTDATED`,
+  and `get_genes`, `get_evidence`, `evaluate` and `write_report` refuse it. Curations made by 0.0.2 are
+  reused as before.
 
 ## cellqc, literature and phenotype-diagnosis 0.0.2 - 2026-11-12
 
