@@ -156,10 +156,10 @@
       "server": "retigene-rag",
       "category": "literature",
       "package": "aiscientist-mcp-retigene-rag",
-      "version": "0.1.0",
+      "version": "0.0.4",
       "description": "MCP server: answer a gene-property question from the RetiGene papers, with a verbatim quote, PMID and page per gene",
       "entry_point": "retigene-rag-mcp",
-      "image": "ghcr.io/lijinbio/mcp-retigene-rag:0.1.0",
+      "image": "ghcr.io/lijinbio/mcp-retigene-rag:0.0.4",
       "path": "packages/retigene-rag",
       "tools": [
         {

@@ -82,10 +82,9 @@ A curation is kept under an id made of its terms, the rules, the models and the 
 asking again reuses it. Every model reply is cached (`RETIGENE_CACHE`), so a rerun, a reworded question with
 the same sentences, or a corpus update reads only what changed.
 
-The id also holds the server's minor version (`0.1`), so a patch release finds the curations of the releases
-before it, and a curation kept by 0.0.x is made again under a new id, from the cached replies. Within one
-minor version, a curation made before a change to the readings is not reused. A curation made by 0.0.1 is the
-case so far: 0.0.2 changed how a gene's two readings are merged, and
+The id also holds the server's minor version (`0.0`), so 0.0.4 reuses curations made by 0.0.2 and 0.0.3.
+Within one minor version, a curation made before a change to the readings is rerun. Version 0.0.2 changed
+how a gene's two readings are merged, so 0.0.1 curations need to be rerun because
 the kept tables do not show every case that the change affects. `submit_curation` runs such a curation
 again from the cached replies and names what it replaces in `replaces`. Until it is run again, `curation_status` and `list_curations` give it the state `OUTDATED`, and
 the tools that read a curation refuse it.

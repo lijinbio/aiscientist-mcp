@@ -280,7 +280,7 @@ provides-extras = ["test"]
 
 [[package]]
 name = "aiscientist-mcp-retigene-rag"
-version = "0.1.0"
+version = "0.0.4"
 source = { editable = "packages/retigene-rag" }
 dependencies = [
     { name = "aiscientist-mcp-common" },
