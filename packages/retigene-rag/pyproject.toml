@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiscientist-mcp-retigene-rag"
-version = "0.0.3"
+version = "0.1.0"
 description = "MCP server: answer a gene-property question from the RetiGene papers, with a verbatim quote, PMID and page per gene"
 requires-python = ">=3.12"
 license = "MIT"

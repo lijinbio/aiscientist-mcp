@@ -30,17 +30,23 @@ server = make_server(
     "- For what RetiGene curates, use the table, never the papers: get_gene for one gene's facts, find_genes "
     "for every gene that meets conditions (phenotype, inheritance, function, expression, ...), with the count, "
     "or the counts per value with group_by. The table answers these exactly and completely; a gene it does "
-    "not list is not in RetiGene. Say which release the answer is from.\n"
+    "not list is not in RetiGene. Say which release the answer is from. get_gene also takes a previous symbol "
+    "or an alias (NPHP6 for CEP290). Before you state a gene's inheritance or phenotype category from the "
+    "papers, pass it to get_gene (inheritance, phenotypes): check.differs lists what the table does not hold, "
+    "and the answer must then give both.\n"
     "- For what the papers say (mechanisms, evidence, findings), use the corpus tools below. To ask it about a "
     "set of genes the table defines, call find_genes first, then search for those genes. A gene's key papers "
     "(get_gene) are where to start, not where to stop: statements about a gene are often in papers about "
-    "other genes, so also search the whole corpus with search_sentences(gene=...).\n"
+    "other genes, so also search the whole corpus with search_sentences(gene=...). A search with gene=... "
+    "returns gene_facts, the table's record of that gene, beside the text; search_passages(gene=...) ranks the "
+    "gene's key papers and the passages that name it first.\n"
     "- For a question that asks for every gene with a property (for example haploinsufficient genes): "
     "search_sentences with the property's own words and their variants (e.g. 'haploinsufficien', 'one "
     "functional copy') to see what the corpus says, then submit_curation once with those terms. It reads "
     "EVERY sentence that holds them or states the property in words, grades each gene from its own sentences "
     "(A stated, B hedged or contested, N not supported) and returns when done (else poll curation_status). "
-    "Answer from get_genes: the A genes, then the B genes apart, each with its quote, PMID and page. "
+    "Answer from get_genes: the A genes, then the B genes apart, each with its quote, PMID and page; a row's "
+    "table_note says its RetiGene record does not fit the claim (AR only, or discarded): pass it on. "
     "get_evidence gives a gene's sentences; write_report writes both tables as Markdown. "
     "submit_curation(estimate_only=true) gives the calls, tokens and cost before anything runs.\n"
     "- For a question about one gene, disease or method: search_passages (by meaning; with terms, only "
@@ -200,29 +206,82 @@ def _in_corpus(cfg) -> dict:
     return _manifest(str(index.manifest), index.fingerprint()) if index.manifest.is_file() else {}
 
 
+@functools.lru_cache(maxsize=1)
+def _hgnc_at(path: str, stamp: tuple):
+    from .corpus import Hgnc
+
+    return Hgnc(path)
+
+
+def _hgnc(cfg):
+    """HGNC symbols for the lookups: the index's table, else one fetched earlier. Never a download here;
+    None when there is none, and a gene is then known by RetiGene's own name only."""
+    for p in (cfg.index.root / "hgnc_complete_set.txt", cfg.index.hgnc_fallback):
+        if p.is_file() and p.stat().st_size:
+            st = p.stat()
+            return _hgnc_at(str(p), (st.st_size, st.st_mtime_ns))
+    return None
+
+
+def _symbol(gene) -> str:
+    symbol = " ".join(str(gene or "").split())
+    if not symbol or len(symbol) > 40:
+        raise ValueError("gene must be one symbol of 1-40 characters")
+    return symbol
+
+
+def _gene_scope(cfg, gene: str) -> dict:
+    """For a search about one gene: how papers may name it, its key papers and RetiGene's record of it
+    (``facts`` is None when the server has no gene table)."""
+    symbol, hgnc = _symbol(gene), _hgnc(cfg)
+    names, pmids, facts = [symbol, *(hgnc.names(symbol) if hgnc else [])], set(), None
+    try:
+        table = _gene_table(cfg)
+    except ValueError:
+        table = None
+    if table:
+        got = table.resolve(symbol, hgnc)
+        facts = {"source": f"RetiGene v{table.version}", "gene": symbol, "found": False}
+        if got["records"]:
+            facts = table.facts(got["records"]) | {"found": True}
+            pmids = {p for r in got["records"] for p in r.pmids}
+            names.insert(1, got["records"][0].gene)
+        elif got.get("ambiguous"):
+            facts["ambiguous"] = got["ambiguous"]
+    return {"names": list(dict.fromkeys(names)), "pmids": pmids, "facts": facts}
+
+
 @tool(server)
-def get_gene(gene: str) -> dict[str, Any]:
+def get_gene(gene: str, inheritance: list[str] | None = None, phenotypes: list[str] | None = None) -> dict[str, Any]:
     """Everything the RetiGene gene table curates about one gene: status (established, candidate with the
     reason, or discarded), class, inheritance, each phenotype category with its own inheritance, functional
     categories, named diseases (OMIM with inheritance and MIM number, Orphanet), variant spectrum, bulk and
     single-cell expression, year of first publication, and its key papers with whether the corpus holds
     their full text. A symbol can have two records. found=false means RetiGene does not list the gene (with
-    the similar symbols it does list); that is an answer, not an error."""
+    the similar symbols it does list); that is an answer, not an error. gene: RetiGene's symbol, or an HGNC
+    previous symbol or alias of it (matched_by says which). inheritance, phenotypes: what you are about to
+    state about the gene (AR, AD, XL, MT; RetiGene's phenotype categories); `check` then says for each
+    whether the established record holds it, and `check.differs` lists the ones it does not."""
     cfg = Settings.from_env()
     with _call():
-        table = _gene_table(cfg)
-        symbol = " ".join(str(gene or "").split())
-        if not symbol or len(symbol) > 40:
-            raise ValueError("gene must be one symbol of 1-40 characters")
-        records = table.get(symbol)
+        table, hgnc, symbol = _gene_table(cfg), _hgnc(cfg), _symbol(gene)
+        got = table.resolve(symbol, hgnc)
+        records = got["records"]
         if not records:
-            return {"release": table.release(), "gene": symbol, "found": False, "similar": table.similar(symbol),
-                    "note": f"RetiGene v{table.version} has no record for {symbol}"}  # fmt: skip
+            out = {"release": table.release(), "gene": symbol, "found": False, "similar": table.similar(symbol),
+                   "note": f"RetiGene v{table.version} has no record for {symbol}"}  # fmt: skip
+            if got.get("ambiguous"):
+                out |= {
+                    "ambiguous": got["ambiguous"],
+                    "note": f"{symbol} is an HGNC alias of several RetiGene genes: {', '.join(got['ambiguous'])}",
+                }
+            return out
         papers = _in_corpus(cfg)
         out = []
         for r in records:
             out.append({
                 "gene": r.gene, "status": r.status, "class": r.gene_class, "is_locus": r.is_locus,
+                **({"hgnc_symbol": table.hgnc_symbol(r.gene, hgnc)} if hgnc and not r.is_locus else {}),
                 "candidate_reason": r.candidate_reason,
                 "inheritance": list(r.inheritance),
                 "phenotypes": [{"phenotype": p, "inheritance": list(ms)} for p, ms in r.phenotypes],
@@ -235,7 +294,12 @@ def get_gene(gene: str) -> dict[str, Any]:
                 "key_papers": [{"pmid": p, "in_corpus": p in papers, "year": papers.get(p, {}).get("year", ""),
                                 "title": papers.get(p, {}).get("title", "")[:160]} for p in r.pmids],
             })  # fmt: skip
-        return {"release": table.release(), "gene": symbol, "found": True, "records": out}
+        res = {"release": table.release(), "gene": symbol, "found": True, "matched_by": got["matched_by"],
+               "records": out}  # fmt: skip
+        if got["matched_by"] == "hgnc":
+            res["note"] = f"{symbol} and RetiGene's {records[0].gene} are one gene in HGNC"
+        stated = (_strings(inheritance, 4), _strings(phenotypes, 5))
+        return res | ({"check": table.check(records, *stated)} if any(stated) else {})
 
 
 @tool(server)
@@ -286,29 +350,39 @@ def find_genes(phenotypes: list[str] | None = None, inheritance: list[str] | Non
 
 
 @tool(server)
-def search_sentences(terms: list[str], gene: str = "", limit: int = 40, offset: int = 0) -> dict[str, Any]:
+def search_sentences(terms: list[str], gene: str = "", limit: int = 40, offset: int = 0,
+                     aliases: bool = False) -> dict[str, Any]:  # fmt: skip
     """Keyword search over every sentence of the corpus. Returns ALL sentences that hold any of the terms, one
     per line as 'PMID <pmid> p<page> c<chunk>: <sentence>', in pages of `limit` (at most 200; page with
     offset until next_offset is null), with the total count. Case, spaces, hyphens and PDF ligatures are
     ignored and a term matches inside words, so 'haploinsufficien' finds haploinsufficient and
     haplo-insufficiency, and 'loss of function' finds loss-of-function. Terms need at least 4 letters.
-    gene: only sentences that name that symbol as a word."""
+    gene: only sentences that name that symbol as a word; aliases=true also counts the gene's HGNC previous
+    symbols and aliases (gene_names lists them). With gene, `gene_facts` is RetiGene's record of it."""
     from .search import keyword_search
 
     cfg = Settings.from_env()
     with _call():
         _, c = _search_corpus(cfg)
-        return keyword_search(c, _strings(terms, 20), gene, limit, offset)
+        if not str(gene or "").strip():
+            return keyword_search(c, _strings(terms, 20), "", limit, offset)
+        scope = _gene_scope(cfg, gene)
+        names = [n for n in scope["names"] if n != _symbol(gene)] if aliases else None
+        out = keyword_search(c, _strings(terms, 20), gene, limit, offset, names)
+        return out | ({"gene_facts": scope["facts"]} if scope["facts"] else {})
 
 
 @tool(server)
-def search_passages(query: str, terms: list[str] | None = None, top_k: int = 5) -> dict[str, Any]:
+def search_passages(query: str, terms: list[str] | None = None, top_k: int = 5, gene: str = "") -> dict[str, Any]:
     """Search by meaning (chunk co-embedding, PubMedBERT): the passages (about 300 words each) nearest the query,
     as written, with PMID, page, title and cosine. With `terms`, only passages holding one of them are ranked
     (keywords and embedding together). It ranks passages by their main topic, so it suits a question about one
     gene, disease or method, and misses claims made in passing: for every gene with a property, use
-    search_sentences and submit_curation. At most 10."""
-    from .search import embedding_search, load_vectors
+    search_sentences and submit_curation. At most 10. gene: for a question about one gene; its passages are
+    ranked first (those of its RetiGene key papers, and those that name it by symbol or HGNC alias) and the rest
+    of the corpus fills what is left. Each passage's `scope` says which it is, and `gene_facts` is RetiGene's
+    record of the gene."""
+    from .search import embedding_search, gene_passages, load_vectors
 
     cfg = Settings.from_env()
     with _call():
@@ -317,7 +391,16 @@ def search_passages(query: str, terms: list[str] | None = None, top_k: int = 5) 
         embed = _embedder(cfg.embedding_model, int(vectors.shape[1]))
         manifest = _manifest(str(index.manifest), index.fingerprint())
         q = " ".join(str(query).split())[:2000]
-        return embedding_search(c, vectors, embed, q, _strings(terms, 20), top_k, manifest)
+        if not str(gene or "").strip():
+            return embedding_search(c, vectors, embed, q, _strings(terms, 20), top_k, manifest)
+        scope = _gene_scope(cfg, gene)
+        own = gene_passages(c, scope["pmids"], scope["names"])
+        out = embedding_search(c, vectors, embed, q, _strings(terms, 20), top_k, manifest, own)
+        return (
+            out
+            | {"gene": _symbol(gene), "gene_names": scope["names"]}
+            | ({"gene_facts": scope["facts"]} if scope["facts"] else {})
+        )
 
 
 @tool(server)
@@ -424,12 +507,28 @@ def curation_status(curation_id: str) -> dict[str, Any]:
         return _summary(d, jobs.status(_job_cfg(), d))
 
 
+def _table_side(cfg, row: dict) -> dict:
+    """What RetiGene has on a curated gene, for its row: read when the row is, never stored with the curation."""
+    try:
+        table = _gene_table(cfg)
+    except ValueError:
+        return {}
+    records = table.resolve(row["gene"], _hgnc(cfg))["records"]
+    if not records:
+        return {"retigene": "not listed"}
+    side = {"retigene": "; ".join(" ".join(filter(None, [r.status, "/".join(r.inheritance)])) for r in records)}
+    note = table.dosage_note(records) if row.get("grade") in ("A", "B") else ""
+    return side | ({"table_note": note} if note else {})
+
+
 @tool(server)
 def get_genes(curation_id: str, grades: str = "A,B", top: int = 100, full: bool = False) -> dict[str, Any]:
     """The gene table of a curation, A first, then B, then N and unresolved: gene, grade, phenotype kind and
     phenotype, confidence, the quoted sentence with its PMID, page and sentence id, papers and sentences read,
     and what the rules changed (code_adjusted). full=true adds the reason, the counts of claims and the paper's
-    citation. `grades`: comma-separated grades to return (default A,B)."""
+    citation. `grades`: comma-separated grades to return (default A,B). With a gene table, each row has
+    `retigene` (the gene's status and inheritance there, or 'not listed'), and an A or B row has `table_note`
+    when that record does not fit a haploinsufficiency claim: AR only, or discarded. The grade is unchanged."""
     from .curate import GENE_COLUMNS, read_csv
 
     cfg = Settings.from_env()
@@ -441,8 +540,11 @@ def get_genes(curation_id: str, grades: str = "A,B", top: int = 100, full: bool 
             g: sum(1 for r in rows if r["grade"] == g) for g in ("A", "B", "N", "unresolved") if g.upper() in want
         }
         keys = GENE_COLUMNS if full else COMPACT_GENE
-        return {"curation_id": curation_id, "file": str(d / "genes.csv"), "counts": counts,
-                "rows": [_clip(r, keys, 2000 if full else 300) for r in rows[: max(1, min(int(top), 2000))]]}  # fmt: skip
+        out = [_clip(r, keys, 2000 if full else 300) | _table_side(cfg, r) for r in rows[: max(1, min(int(top), 2000))]]
+        noted = [r["gene"] for r in out if r.get("table_note")]
+        return {"curation_id": curation_id, "file": str(d / "genes.csv"), "counts": counts, "rows": out} | (
+            {"table_notes": noted} if noted else {}
+        )
 
 
 @tool(server)

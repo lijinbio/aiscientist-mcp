@@ -110,6 +110,9 @@ def _diseases(omim: str, orphanet: str) -> tuple[dict, ...]:
         if m:
             out.append({"source": "OMIM", "disease": m.group(1).strip().replace("_", " "),
                         "inheritance": "/".join(modes(m.group(2).strip())), "id": m.group(3)})  # fmt: skip
+            digenic = re.search(r"digenic (recessive|dominant)", m.group(2), re.I)
+            if digenic:  # OMIM's own word, beside the modes: 'AR-Digenic recessive'
+                out[-1]["digenic"] = digenic.group(1).lower()
         else:
             out.append({"source": "OMIM", "disease": item.replace("_", " "), "inheritance": "", "id": ""})
     for item in filter(None, (x.strip() for x in _clean(orphanet).split(";"))):
@@ -196,6 +199,66 @@ class GeneTable:
     def get(self, symbol: str) -> list[Record]:
         want = _key(symbol)
         return [r for r in self.records if _key(r.gene) == want or _key(r.gene) == want + "locus"]
+
+    def resolve(self, symbol: str, hgnc=None) -> dict:
+        """The records for a symbol as an agent may write it: RetiGene's own name first, then, with an HGNC
+        table, the gene it is an approved symbol, a previous symbol or an alias of. ``records`` is empty when
+        RetiGene does not list the gene or when the name is an alias of several of its genes (``ambiguous``).
+        An alias of several HGNC genes of which RetiGene lists one is that one (RP11: PRPF31)."""
+        direct = self.get(symbol)
+        if direct or hgnc is None or not hgnc.loaded:
+            return {"records": direct, "matched_by": "symbol" if direct else ""}
+        key = re.sub(r"[^A-Za-z0-9-]", "", str(symbol)).upper()
+        approved = set(hgnc.alias.get(key, ())) | ({hgnc.hg[key]} if key in hgnc.hg else set())
+        hits: dict[str, list[Record]] = {}
+        for r in self.records:
+            if not r.is_locus and (self.hgnc_symbol(r.gene, hgnc) or r.gene) in approved:
+                hits.setdefault(r.gene, []).append(r)
+        if len(hits) > 1:
+            return {"records": [], "matched_by": "", "ambiguous": sorted(hits)}
+        if not hits:
+            return {"records": [], "matched_by": "", "hgnc_symbols": sorted(approved)}
+        return {"records": next(iter(hits.values())), "matched_by": "hgnc"}
+
+    @staticmethod
+    def hgnc_symbol(gene: str, hgnc) -> str:
+        """The approved HGNC symbol of a RetiGene name ('' when HGNC does not know it, or names two genes)."""
+        sym, how = hgnc.norm(gene)
+        return sym if how in ("ok", "alias") else ""
+
+    def facts(self, records: list[Record]) -> dict:
+        """What the table curates about one gene, short enough to go beside search results."""
+        return {"source": f"RetiGene v{self.version}", "gene": records[0].gene,
+                "records": [{k: v for k, v in r.line().items() if k != "gene" and v}
+                            | ({"candidate_reason": r.candidate_reason} if r.candidate_reason else {})
+                            for r in records]}  # fmt: skip
+
+    def check(self, records: list[Record], inheritance=(), phenotypes=()) -> dict:
+        """Statements about a gene against its established records: each stated inheritance mode and
+        phenotype category is ``in_table`` or not. ``differs`` lists the ones the table does not hold."""
+        est = [r for r in records if r.status == "established"]
+        have = {"inheritance": sorted({m for r in est for m in r.values("inheritance")}),
+                "phenotype": sorted({p for r in est for p in r.values("phenotype")})}  # fmt: skip
+        stated = [("inheritance", self._accept("inheritance", m)) for m in inheritance]
+        stated += [("phenotype", self._accept("phenotype", p)) for p in phenotypes]
+        rows = [{"field": f, "stated": v, "in_table": v in have[f]} for f, v in stated]
+        gene = records[0].gene
+        differs = [f"{r['field']} {r['stated']}: RetiGene v{self.version} has {', '.join(have[r['field']]) or 'none'} "
+                   f"for {gene}" for r in rows if not r["in_table"]]  # fmt: skip
+        if not est:
+            differs = [f"{gene} is not an established gene in RetiGene v{self.version} ({records[0].status})"]
+        return {"checked": rows, "differs": differs}
+
+    def dosage_note(self, records: list[Record]) -> str:
+        """For a gene said to act through haploinsufficiency (one lost copy causes the disease): what in the
+        table does not fit that, '' when nothing. Only a recessive record, or a discarded gene."""
+        est = [r for r in records if r.status == "established"]
+        got = {m for r in est for m in r.values("inheritance")}
+        if est and got == {"AR"}:
+            return f"RetiGene v{self.version} lists {est[0].gene} as AR only: check which phenotype the claim is for"
+        if records and not est and all(r.status == "discarded" for r in records):
+            return f"RetiGene v{self.version} discarded {records[0].gene} as a disease gene"
+        return ""
 
     def similar(self, symbol: str, limit: int = 8) -> list[str]:
         want = _key(symbol)

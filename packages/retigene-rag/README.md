@@ -10,14 +10,14 @@ sentence, each with a verbatim quote, PMID and page.
 
 | Tool | Arguments | Returns |
 | --- | --- | --- |
-| `get_gene` | `gene` | the gene's records in the gene table: status, inheritance, phenotype categories each with its inheritance, functional categories, OMIM and Orphanet diseases, expression, key papers and whether the corpus holds them; `found: false` when RetiGene does not list it |
+| `get_gene` | `gene`, `inheritance`, `phenotypes` | the gene's records in the gene table: status, inheritance, phenotype categories each with its inheritance, functional categories, OMIM and Orphanet diseases, expression, key papers and whether the corpus holds them; `found: false` when RetiGene does not list it. `gene` may be an HGNC previous symbol or alias. With `inheritance` or `phenotypes`, `check` says which of them the established record holds |
 | `find_genes` | `phenotypes`, `inheritance`, `functions`, `status`, `gene_class`, `cell_type`, `cell_group`, `tissue_expression`, `variant_spectrum`, `disease`, `group_by`, `limit` | every gene that meets all the conditions, with the count; with `group_by`, the count per value of one field |
-| `search_sentences` | `terms`, `gene`, `limit`, `offset` | every sentence that holds a term, as `PMID p c: sentence` lines, paged; case, spaces, hyphens and PDF ligatures ignored |
-| `search_passages` | `query`, `terms`, `top_k` | the passages nearest the query by chunk co-embedding (PubMedBERT); with `terms`, only passages that hold one are ranked |
+| `search_sentences` | `terms`, `gene`, `limit`, `offset`, `aliases` | every sentence that holds a term, as `PMID p c: sentence` lines, paged; case, spaces, hyphens and PDF ligatures ignored. With `gene`, only sentences that name it (`aliases`: also by its other HGNC names), and `gene_facts` |
+| `search_passages` | `query`, `terms`, `top_k`, `gene` | the passages nearest the query by chunk co-embedding (PubMedBERT); with `terms`, only passages that hold one are ranked. With `gene`, the gene's own passages first, each with its `scope`, and `gene_facts` |
 | `read_passage` | `pmid`, `chunk` | the whole passage with its citation, title and DOI |
 | `submit_curation` | `question`, `terms`, `estimate_only`, `max_cost_usd`, `rerun` | `curation_id`, `state`; when COMPLETED the A and B genes and the run's time, calls, tokens and cost. `estimate_only`: genes, calls, tokens and cost, no model call |
 | `curation_status` | `curation_id` | `state`, model calls so far; when COMPLETED as above |
-| `get_genes` | `curation_id`, `grades`, `top`, `full` | the gene table: grade, phenotype, quote with PMID, page and sentence id, what the rules changed |
+| `get_genes` | `curation_id`, `grades`, `top`, `full` | the gene table: grade, phenotype, quote with PMID, page and sentence id, what the rules changed, and what RetiGene has on the gene (`retigene`, `table_note`) |
 | `get_evidence` | `curation_id`, `gene`, `pmid`, `grades`, `offset`, `limit` | the sentence table: every sentence read for a gene, with the checks behind its grade |
 | `evaluate` | `curation_id`, `reference` | A recall (all, ocular, syndromic), B listed apart, N listed, pass flags, against the curator reference |
 | `write_report` | `curation_id` | `report.md`: the A genes, the B genes apart, the run |
@@ -30,6 +30,36 @@ is not part of this package: get it from RetiGene. Inheritance is given as AR, A
 table does not hold is refused with the values it does hold. A symbol can have two records (established for
 one phenotype, a candidate for another), and a few records are loci. A gene's key papers are where a search
 starts, not a filter: in the corpus, the statements about a gene are often in papers about other genes.
+
+**The table beside the corpus** (RCHENLAB/AiScientist #124, phase 1). The two sources meet at the gene.
+
+- *Names.* `get_gene` finds a gene by RetiGene's own name, then by HGNC: an approved symbol, a previous
+  symbol or an alias (`NPHP6` is CEP290; `matched_by` is then `hgnc`, and each record gives its
+  `hgnc_symbol`). An alias of several HGNC genes is the one RetiGene lists (`RP11`: PRPF31), and an alias of
+  several RetiGene genes is refused with them (`CRD`: CRX, RPGR). The HGNC table is the index's
+  `hgnc_complete_set.txt`; without one a gene is known by RetiGene's name only.
+- *Facts with the text.* A search with `gene` returns `gene_facts` beside its sentences or passages: the
+  release, and each record's status, inheritance, phenotype categories with their inheritance, and functional
+  categories. `found: false` says RetiGene does not list the gene.
+- *The gene's passages first.* `search_passages(gene=...)` ranks the gene's own passages before the rest of
+  the corpus, each part by cosine: the passages of its key papers (`scope` `key paper`) and the passages with
+  a sentence that names it by symbol or by another HGNC name (`names the gene`). The rest of the corpus fills
+  what is left of `top_k` (`rest of the corpus`). `search_sentences(gene=..., aliases=true)` counts those
+  other names too; they are previous symbols and aliases of four characters or more that belong to this gene
+  alone and are not an abbreviation of the field.
+- *What the table does not hold.* `get_gene(gene, inheritance=[...], phenotypes=[...])` checks statements
+  against the established record: `check.differs` names each stated mode or phenotype category that the
+  table does not have for the gene. In a curation, `get_genes` gives every row the gene's status and
+  inheritance in RetiGene (`retigene`), and an A or B row a `table_note` when that record does not fit a
+  haploinsufficiency claim: the gene is recessive only, or RetiGene discarded it. The note is read from the
+  table when the row is read. It changes no grade and is not stored with the curation.
+
+On RetiGene v1.12 with the HGNC table of 2026-10-14: 759 of the 762 gene names are approved symbols, 2 are
+previous symbols (CLUAP1, TRAF3IP1) and 1 is unknown to HGNC (OR2W7). 2,104 other HGNC names resolve to a
+RetiGene gene, and 16 are aliases of two of them. None of the 15 A genes of the curator reference is
+recessive only or discarded in the table. ABCA4, CLN8 (recessive only) and FSCN2 (discarded), three of the A
+genes outside the reference in the test below, each get a note, and so does RCBTB1, which the curator graded
+B. The corpus tools were not run on the RetiGene index for this, only on the tests' index.
 
 **The curation** (`submit_curation`) is the corpus-wide scan of RCHENLAB/AiScientist #95, with the
 sentence grading of #99 (Ziyao Ma, rules revision 17):
@@ -52,8 +82,10 @@ A curation is kept under an id made of its terms, the rules, the models and the 
 asking again reuses it. Every model reply is cached (`RETIGENE_CACHE`), so a rerun, a reworded question with
 the same sentences, or a corpus update reads only what changed.
 
-The id also holds the server's minor version (`0.0`), so a patch release finds the curations of the releases
-before it. A curation made by 0.0.1 is not reused: 0.0.2 changed how a gene's two readings are merged, and
+The id also holds the server's minor version (`0.1`), so a patch release finds the curations of the releases
+before it, and a curation kept by 0.0.x is made again under a new id, from the cached replies. Within one
+minor version, a curation made before a change to the readings is not reused. A curation made by 0.0.1 is the
+case so far: 0.0.2 changed how a gene's two readings are merged, and
 the kept tables do not show every case that the change affects. `submit_curation` runs such a curation
 again from the cached replies and names what it replaces in `replaces`. Until it is run again, `curation_status` and `list_curations` give it the state `OUTDATED`, and
 the tools that read a curation refuse it.
@@ -131,4 +163,4 @@ load and the curation. Input tokens include the cached system prompts (about thr
   `search_passages` 15 s per call (most of it the corpus and model load), and its query vectors equal the
   stored chunk vectors (cosine 1.000000 on 8 passages).
 
-The offline tests use a stand-in model and embedder (`offline-test`): 24 tests, about 10 s.
+The offline tests use a stand-in model and embedder (`offline-test`): 33 tests, about 10 s.
