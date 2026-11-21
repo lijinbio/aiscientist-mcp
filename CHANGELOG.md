@@ -6,29 +6,8 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
 
 ## [Unreleased]
 
-### Added
-
-- retigene-rag 0.1.0: the gene table beside the corpus (RCHENLAB/AiScientist #124, phase 1).
-  `get_gene` finds a gene by an HGNC previous symbol or alias, and with `inheritance` or `phenotypes` it
-  says which of them the established record holds (`check.differs`). `search_sentences(gene=...)` and
-  `search_passages(gene=...)` return the table's record of the gene (`gene_facts`).
-  `search_passages(gene=...)` ranks the gene's own passages first: those of its key papers and those that
-  name it. `search_sentences(aliases=true)` also counts the gene's other HGNC names. `get_genes` gives each
-  curated gene its RetiGene status and inheritance, and a `table_note` on an A or B gene that is recessive
-  only or discarded there. No grade changes. Calls without the new arguments return what they did.
-  The minor version is part of the curation id: a curation kept by 0.0.x is made again under a new id,
-  from the cached replies.
-- retigene-rag 0.1.0: an OMIM disease keeps `digenic` (`recessive` or `dominant`) beside its inheritance
-  modes; the word used to be dropped.
-
 ### Fixed
 
-- retigene-rag 0.0.3: a curation kept by 0.0.1 is not reused. The curation id holds the minor version
-  only, so 0.0.2 returned a curation that 0.0.1 had completed as it was, including one with a batch that
-  could not be read. `submit_curation` now runs such a curation again, from the cached model replies, and
-  says what it replaces. Until then `curation_status` and `list_curations` give it the state `OUTDATED`,
-  and `get_genes`, `get_evidence`, `evaluate` and `write_report` refuse it. Curations made by 0.0.2 are
-  reused as before.
 - retigene-rag 0.0.2: the two readings of a gene are paired by sentence number. When one batch of one
   reading had no readable reply, that reading used to be shorter than the other, and the merge by position
   compared the wrong sentences or stopped with an index error. A sentence only one reading has is kept
@@ -75,6 +54,34 @@ versioned on its own ([Semantic Versioning](https://semver.org/)) and released w
   pushes the image and publishes a GitHub release.
 - A README catalog grouped by category, generated with `servers.json` by `index_servers.py`
   (`--check` in CI).
+
+## retigene-rag 0.1.0 - 2026-11-21
+
+### Added
+
+- retigene-rag 0.1.0: the gene table beside the corpus (RCHENLAB/AiScientist #124, phase 1).
+  `get_gene` finds a gene by an HGNC previous symbol or alias, and with `inheritance` or `phenotypes` it
+  says which of them the established record holds (`check.differs`). `search_sentences(gene=...)` and
+  `search_passages(gene=...)` return the table's record of the gene (`gene_facts`).
+  `search_passages(gene=...)` ranks the gene's own passages first: those of its key papers and those that
+  name it. `search_sentences(aliases=true)` also counts the gene's other HGNC names. `get_genes` gives each
+  curated gene its RetiGene status and inheritance, and a `table_note` on an A or B gene that is recessive
+  only or discarded there. No grade changes. Calls without the new arguments return what they did.
+  The minor version is part of the curation id: a curation kept by 0.0.x is made again under a new id,
+  from the cached replies.
+- retigene-rag 0.1.0: an OMIM disease keeps `digenic` (`recessive` or `dominant`) beside its inheritance
+  modes; the word used to be dropped.
+
+## retigene-rag 0.0.3 - 2026-11-21
+
+### Fixed
+
+- retigene-rag 0.0.3: a curation kept by 0.0.1 is not reused. The curation id holds the minor version
+  only, so 0.0.2 returned a curation that 0.0.1 had completed as it was, including one with a batch that
+  could not be read. `submit_curation` now runs such a curation again, from the cached model replies, and
+  says what it replaces. Until then `curation_status` and `list_curations` give it the state `OUTDATED`,
+  and `get_genes`, `get_evidence`, `evaluate` and `write_report` refuse it. Curations made by 0.0.2 are
+  reused as before.
 
 ## cellqc, literature and phenotype-diagnosis 0.0.2 - 2026-11-12
 
